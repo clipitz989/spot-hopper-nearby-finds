@@ -1,16 +1,19 @@
 
 import { useState, useEffect } from 'react';
 import { useLocation } from "../hooks/useLocation";
-import { mockPOIs } from "../data/mockData";
 import { PointOfInterest, Filter } from "../types";
 import { PlaceCard } from "../components/PlaceCard";
 import { FilterBar } from "../components/FilterBar";
 import { PlaceDetails } from "../components/PlaceDetails";
+import { usePlacesQuery } from "../hooks/usePlacesQuery";
+import { getFoursquareApiKey } from "../services/foursquareService";
+import { ApiKeyForm } from "../components/ApiKeyForm";
+import { toast } from "@/hooks/use-toast";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Home() {
-  const { position, loading } = useLocation();
-  const [places, setPlaces] = useState<PointOfInterest[]>(mockPOIs);
-  const [filteredPlaces, setFilteredPlaces] = useState<PointOfInterest[]>(mockPOIs);
+  const { position, loading: locationLoading } = useLocation();
+  const [hasApiKey, setHasApiKey] = useState(!!getFoursquareApiKey());
   const [selectedPlace, setSelectedPlace] = useState<PointOfInterest | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [filters, setFilters] = useState<Filter>({
@@ -21,42 +24,35 @@ export default function Home() {
     selectedCategories: []
   });
 
-  // Apply filters whenever filters or places change
+  const { 
+    data: places = [],
+    isLoading: placesLoading,
+    isError,
+    error,
+    refetch
+  } = usePlacesQuery({
+    enabled: hasApiKey,
+    filters
+  });
+
   useEffect(() => {
-    let result = places;
-    
-    // Filter by open now
-    if (filters.openNow) {
-      result = result.filter(place => place.openNow);
+    if (isError && error) {
+      toast({
+        title: "Error loading places",
+        description: error.toString(),
+        variant: "destructive",
+      });
     }
-    
-    // Filter by rating
-    if (filters.minRating > 0) {
-      result = result.filter(place => place.rating >= filters.minRating);
-    }
-    
-    // Filter by distance (convert km to m)
-    const maxDistanceMeters = filters.maxDistance * 1000;
-    result = result.filter(place => 
-      place.distance === undefined || place.distance <= maxDistanceMeters
-    );
-    
-    // Filter by price range
-    result = result.filter(place => 
-      place.priceRange === undefined || 
-      (place.priceRange >= filters.priceRange[0] && 
-       place.priceRange <= filters.priceRange[1])
-    );
-    
-    // Filter by categories
-    if (filters.selectedCategories.length > 0) {
-      result = result.filter(place => 
-        filters.selectedCategories.includes(place.category)
-      );
-    }
-    
-    setFilteredPlaces(result);
-  }, [filters, places]);
+  }, [isError, error]);
+
+  // Handle API key form completion
+  const handleApiKeyFormComplete = () => {
+    setHasApiKey(true);
+    toast({
+      title: "API Key Saved",
+      description: "Your Foursquare API key has been saved.",
+    });
+  };
 
   const handleOpenDetails = (place: PointOfInterest) => {
     setSelectedPlace(place);
@@ -67,35 +63,69 @@ export default function Home() {
     setIsDetailsOpen(false);
   };
 
+  const renderContent = () => {
+    // Show API key form if no key is available
+    if (!hasApiKey) {
+      return (
+        <div className="flex justify-center items-center py-10">
+          <ApiKeyForm onComplete={handleApiKeyFormComplete} />
+        </div>
+      );
+    }
+
+    // Show loading state when detecting location or loading places
+    if (locationLoading || placesLoading) {
+      return (
+        <div className="p-4 grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+          {Array(6).fill(0).map((_, index) => (
+            <div key={index} className="border rounded-lg overflow-hidden">
+              <Skeleton className="h-40 w-full" />
+              <div className="p-4">
+                <Skeleton className="h-6 w-2/3 mb-2" />
+                <Skeleton className="h-4 w-full mb-1" />
+                <Skeleton className="h-4 w-1/2" />
+              </div>
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    // Show places
+    return (
+      <div className="grid gap-4 p-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+        {places.length > 0 ? (
+          places.map(place => (
+            <PlaceCard
+              key={place.id}
+              place={place}
+              onClick={() => handleOpenDetails(place)}
+            />
+          ))
+        ) : (
+          <div className="col-span-full text-center py-8">
+            <p>No places match your current filters.</p>
+            <button 
+              className="mt-4 text-primary underline"
+              onClick={() => refetch()}
+            >
+              Refresh
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="pb-16 min-h-screen bg-background">
       <header className="sticky top-0 z-20 bg-background border-b px-4 py-3">
         <h1 className="text-2xl font-bold text-center">Nearby Finds</h1>
       </header>
       
-      <FilterBar filters={filters} onFilterChange={setFilters} />
+      {hasApiKey && <FilterBar filters={filters} onFilterChange={setFilters} />}
       
-      {loading ? (
-        <div className="flex justify-center items-center h-40">
-          <p>Detecting your location...</p>
-        </div>
-      ) : (
-        <div className="grid gap-4 p-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-          {filteredPlaces.length > 0 ? (
-            filteredPlaces.map(place => (
-              <PlaceCard
-                key={place.id}
-                place={place}
-                onClick={() => handleOpenDetails(place)}
-              />
-            ))
-          ) : (
-            <div className="col-span-full text-center py-8">
-              <p>No places match your current filters.</p>
-            </div>
-          )}
-        </div>
-      )}
+      {renderContent()}
       
       {selectedPlace && (
         <PlaceDetails
