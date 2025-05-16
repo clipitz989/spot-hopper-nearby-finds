@@ -1,6 +1,6 @@
 
 import { useQuery } from "@tanstack/react-query";
-import { fetchPlaces, FoursquareSearchParams } from "../services/foursquareService";
+import { fetchPlaces, FoursquareSearchParams, mapCategoriesToFoursquare } from "../services/foursquareService";
 import { PointOfInterest, Filter } from "../types";
 import { useLocation } from "./useLocation";
 
@@ -27,11 +27,12 @@ export function usePlacesQuery(options: UsePlacesQueryOptions = {}) {
         open_now: filters?.openNow,
       };
       
-      // Add category filter if specified
+      // Add category filter if specified using the mapping function
       if (filters?.selectedCategories && filters.selectedCategories.length > 0) {
-        // Map our app categories to Foursquare category IDs
-        // This is a simplified approach - in a real app you'd want to map to actual Foursquare category IDs
-        params.categories = filters.selectedCategories.join(',');
+        const mappedCategories = mapCategoriesToFoursquare(filters.selectedCategories);
+        if (mappedCategories) {
+          params.categories = mappedCategories;
+        }
       }
       
       return fetchPlaces(params);

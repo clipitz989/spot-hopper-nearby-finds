@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useLocation } from "../hooks/useLocation";
 import { PointOfInterest, Filter } from "../types";
@@ -33,13 +32,30 @@ export default function Home() {
 
   useEffect(() => {
     if (isError && error) {
+      // More informative error message for category issues
+      let errorMessage = error.toString();
+      if (errorMessage.includes("400")) {
+        errorMessage = "Invalid category selection or API request. Please try different filters.";
+      }
+      
       toast({
         title: "Error loading places",
-        description: error.toString(),
+        description: errorMessage,
         variant: "destructive",
       });
     }
   }, [isError, error]);
+
+  const handleFilterChange = (newFilters: Filter) => {
+    setFilters(newFilters);
+    // Provide feedback when applying filters
+    if (newFilters.selectedCategories.length > 0) {
+      toast({
+        title: "Applying filters",
+        description: `Finding places${newFilters.selectedCategories.length > 0 ? ' in selected categories' : ''}`,
+      });
+    }
+  };
 
   const handleOpenDetails = (place: PointOfInterest) => {
     setSelectedPlace(place);
@@ -101,7 +117,7 @@ export default function Home() {
         <h1 className="text-2xl font-bold text-center">Nearby Finds</h1>
       </header>
       
-      <FilterBar filters={filters} onFilterChange={setFilters} />
+      <FilterBar filters={filters} onFilterChange={handleFilterChange} />
       
       {renderContent()}
       

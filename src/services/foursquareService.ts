@@ -10,6 +10,14 @@ const DEFAULT_FOURSQUARE_API_KEY = "fsq3ATzZbJD1EtPtzErfG+4aBcoWeA8aTiQeP9DVi5X9
 // We'll keep the local storage functionality for backward compatibility
 let FOURSQUARE_API_KEY = DEFAULT_FOURSQUARE_API_KEY;
 
+// Category mappings to Foursquare category IDs
+// Reference: https://developer.foursquare.com/reference/categories
+const CATEGORY_MAPPING = {
+  food: "13000",      // Food category ID
+  attractions: "10000", // Arts & Entertainment category ID
+  activities: "17000"  // Shops & Services category ID
+};
+
 export const setFoursquareApiKey = (apiKey: string) => {
   FOURSQUARE_API_KEY = apiKey;
   localStorage.setItem("foursquareApiKey", apiKey);
@@ -36,6 +44,16 @@ export interface FoursquareSearchParams {
   max_price?: number;
   query?: string;
 }
+
+// Convert our app categories to Foursquare category IDs
+export const mapCategoriesToFoursquare = (categories: string[]): string => {
+  if (!categories || categories.length === 0) {
+    return "";
+  }
+
+  const mappedCategoryIds = categories.map(category => CATEGORY_MAPPING[category as keyof typeof CATEGORY_MAPPING] || "");
+  return mappedCategoryIds.filter(id => id).join(',');
+};
 
 interface FoursquareLocation {
   address?: string;
