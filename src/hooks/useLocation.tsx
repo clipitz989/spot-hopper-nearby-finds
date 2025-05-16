@@ -12,6 +12,8 @@ export function useLocation() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [customLocation, setCustomLocation] = useState<string | null>(null);
+  // Add a change counter to trigger refetches
+  const [locationChangeCounter, setLocationChangeCounter] = useState(0);
 
   // Get current location using browser geolocation
   const getCurrentLocation = () => {
@@ -36,6 +38,7 @@ export function useLocation() {
           longitude: position.coords.longitude
         });
         setLoading(false);
+        setLocationChangeCounter(prev => prev + 1);
         toast({
           title: "Location Updated",
           description: "Using your current location",
@@ -70,6 +73,7 @@ export function useLocation() {
           latitude: parseFloat(location.lat),
           longitude: parseFloat(location.lon)
         });
+        setLocationChangeCounter(prev => prev + 1);
         toast({
           title: "Location Updated",
           description: `Showing results for ${query}`,
@@ -102,6 +106,7 @@ export function useLocation() {
     error, 
     loading, 
     customLocation,
+    locationChangeCounter,
     getCurrentLocation,
     searchLocation
   };

@@ -28,6 +28,12 @@ export function LocationSearch() {
           onChange={(e) => setSearchQuery(e.target.value)}
           disabled={loading}
         />
+        {customLocation && !loading && (
+          <div className="absolute right-10 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+            <MapPin className="h-3 w-3 inline mr-1" />
+            {customLocation}
+          </div>
+        )}
       </form>
       <Button 
         type="button"

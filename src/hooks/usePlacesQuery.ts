@@ -10,11 +10,11 @@ interface UsePlacesQueryOptions {
 }
 
 export function usePlacesQuery(options: UsePlacesQueryOptions = {}) {
-  const { position, loading: locationLoading, customLocation } = useLocation();
+  const { position, loading: locationLoading, customLocation, locationChangeCounter } = useLocation();
   const { filters, enabled = true } = options;
   
   return useQuery({
-    queryKey: ['places', position, filters, customLocation],
+    queryKey: ['places', position, filters, customLocation, locationChangeCounter],
     queryFn: async () => {
       if (!position) {
         return [];
