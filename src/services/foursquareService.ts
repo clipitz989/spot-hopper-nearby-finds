@@ -1,12 +1,14 @@
-
 import { PointOfInterest } from "../types";
 
 // Foursquare API configuration
 const FOURSQUARE_API_URL = "https://api.foursquare.com/v3";
 const FOURSQUARE_PLACES_ENDPOINT = "/places/search";
 
-// We'll get this from the user input since we're using the free tier
-let FOURSQUARE_API_KEY = "";
+// Default API key - this would normally be stored in an environment variable on the server
+const DEFAULT_FOURSQUARE_API_KEY = "fsq3ATzZbJD1EtPtzErfG+4aBcoWeA8aTiQeP9DVi5X98QE=";
+
+// We'll keep the local storage functionality for backward compatibility
+let FOURSQUARE_API_KEY = DEFAULT_FOURSQUARE_API_KEY;
 
 export const setFoursquareApiKey = (apiKey: string) => {
   FOURSQUARE_API_KEY = apiKey;
@@ -14,7 +16,7 @@ export const setFoursquareApiKey = (apiKey: string) => {
 };
 
 export const getFoursquareApiKey = (): string => {
-  if (!FOURSQUARE_API_KEY) {
+  if (FOURSQUARE_API_KEY === DEFAULT_FOURSQUARE_API_KEY) {
     const savedKey = localStorage.getItem("foursquareApiKey");
     if (savedKey) {
       FOURSQUARE_API_KEY = savedKey;
@@ -143,10 +145,6 @@ export const transformFoursquareToPointOfInterest = (place: FoursquarePlace): Po
 
 export const fetchPlaces = async (params: FoursquareSearchParams): Promise<PointOfInterest[]> => {
   const apiKey = getFoursquareApiKey();
-  
-  if (!apiKey) {
-    throw new Error("Foursquare API key not set");
-  }
   
   // Construct query parameters
   const queryParams = new URLSearchParams();

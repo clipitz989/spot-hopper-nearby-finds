@@ -6,14 +6,11 @@ import { PlaceCard } from "../components/PlaceCard";
 import { FilterBar } from "../components/FilterBar";
 import { PlaceDetails } from "../components/PlaceDetails";
 import { usePlacesQuery } from "../hooks/usePlacesQuery";
-import { getFoursquareApiKey } from "../services/foursquareService";
-import { ApiKeyForm } from "../components/ApiKeyForm";
 import { toast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Home() {
   const { position, loading: locationLoading } = useLocation();
-  const [hasApiKey, setHasApiKey] = useState(!!getFoursquareApiKey());
   const [selectedPlace, setSelectedPlace] = useState<PointOfInterest | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [filters, setFilters] = useState<Filter>({
@@ -31,7 +28,6 @@ export default function Home() {
     error,
     refetch
   } = usePlacesQuery({
-    enabled: hasApiKey,
     filters
   });
 
@@ -45,15 +41,6 @@ export default function Home() {
     }
   }, [isError, error]);
 
-  // Handle API key form completion
-  const handleApiKeyFormComplete = () => {
-    setHasApiKey(true);
-    toast({
-      title: "API Key Saved",
-      description: "Your Foursquare API key has been saved.",
-    });
-  };
-
   const handleOpenDetails = (place: PointOfInterest) => {
     setSelectedPlace(place);
     setIsDetailsOpen(true);
@@ -64,15 +51,6 @@ export default function Home() {
   };
 
   const renderContent = () => {
-    // Show API key form if no key is available
-    if (!hasApiKey) {
-      return (
-        <div className="flex justify-center items-center py-10">
-          <ApiKeyForm onComplete={handleApiKeyFormComplete} />
-        </div>
-      );
-    }
-
     // Show loading state when detecting location or loading places
     if (locationLoading || placesLoading) {
       return (
@@ -123,7 +101,7 @@ export default function Home() {
         <h1 className="text-2xl font-bold text-center">Nearby Finds</h1>
       </header>
       
-      {hasApiKey && <FilterBar filters={filters} onFilterChange={setFilters} />}
+      <FilterBar filters={filters} onFilterChange={setFilters} />
       
       {renderContent()}
       
