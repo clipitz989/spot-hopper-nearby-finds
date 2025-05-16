@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useLocation } from "../hooks/useLocation";
 import { PointOfInterest, Filter } from "../types";
@@ -7,6 +8,7 @@ import { PlaceDetails } from "../components/PlaceDetails";
 import { usePlacesQuery } from "../hooks/usePlacesQuery";
 import { toast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
+import { LocationSearch } from "../components/LocationSearch";
 
 export default function Home() {
   const { position, loading: locationLoading } = useLocation();
@@ -116,6 +118,10 @@ export default function Home() {
       <header className="sticky top-0 z-20 bg-background border-b px-4 py-3">
         <h1 className="text-2xl font-bold text-center">Nearby Finds</h1>
       </header>
+      
+      <div className="px-4 pt-4 pb-2">
+        <LocationSearch />
+      </div>
       
       <FilterBar filters={filters} onFilterChange={handleFilterChange} />
       
