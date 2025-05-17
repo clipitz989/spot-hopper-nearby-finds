@@ -13,9 +13,13 @@ export function usePlacesQuery(options: UsePlacesQueryOptions = {}) {
   const { position, loading: locationLoading, customLocation, locationChangeCounter } = useLocation();
   const { enabled = true, filters } = options;
 
+  console.log('usePlacesQuery render - position:', position, 'counter:', locationChangeCounter);
+
   const query = useQuery({
     queryKey: ['places', position, filters, locationChangeCounter],
     queryFn: async () => {
+      console.log('Places query function executing with position:', position);
+      
       if (!position) {
         throw new Error('No location available');
       }
@@ -40,13 +44,19 @@ export function usePlacesQuery(options: UsePlacesQueryOptions = {}) {
         params.minprice = filters.priceRange[0] - 1; // Google uses 0-4 scale
         params.maxprice = filters.priceRange[1] - 1;
       }
+
+      console.log('Fetching places with params:', params);
       
       try {
         const places = await fetchPlaces(params);
+        console.log('Fetched places:', places.length);
         
         // Filter by minimum rating on the client side since Google Places API
         // doesn't support minimum rating filter
-        return places.filter(place => place.rating >= (filters?.minRating || 0));
+        const filteredPlaces = places.filter(place => place.rating >= (filters?.minRating || 0));
+        console.log('Filtered places:', filteredPlaces.length);
+        
+        return filteredPlaces;
       } catch (error) {
         console.error("Error fetching places:", error);
         throw error;
@@ -57,6 +67,17 @@ export function usePlacesQuery(options: UsePlacesQueryOptions = {}) {
     gcTime: 1000 * 60 * 5, // Cache for 5 minutes
     retry: 1, // Only retry once on failure
   });
+
+  // Log query state changes
+  useEffect(() => {
+    console.log('Query state:', {
+      isLoading: query.isLoading,
+      isFetching: query.isFetching,
+      isError: query.isError,
+      error: query.error,
+      dataLength: query.data?.length
+    });
+  }, [query.isLoading, query.isFetching, query.isError, query.error, query.data]);
 
   return query;
 }

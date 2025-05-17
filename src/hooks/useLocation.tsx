@@ -15,6 +15,7 @@ export function useLocation() {
 
   // Get current location using browser geolocation
   const getCurrentLocation = useCallback(() => {
+    console.log('Getting current location...');
     setLoading(true);
     setCustomLocation(null);
     
@@ -36,9 +37,13 @@ export function useLocation() {
           longitude: position.coords.longitude
         };
         
+        console.log('Current location obtained:', newPosition);
         setPosition(newPosition);
         setLoading(false);
-        setLocationChangeCounter(prev => prev + 1);
+        setLocationChangeCounter(prev => {
+          console.log('Incrementing location counter from', prev, 'to', prev + 1);
+          return prev + 1;
+        });
         
         toast({
           title: "Location Updated",
@@ -46,6 +51,7 @@ export function useLocation() {
         });
       },
       (error) => {
+        console.error('Error getting current location:', error);
         setError(error.message);
         setLoading(false);
         toast({
@@ -61,10 +67,12 @@ export function useLocation() {
   const searchLocation = useCallback(async (query: string) => {
     if (!query) return;
     
+    console.log('Searching for location:', query);
     setLoading(true);
     setCustomLocation(query);
     
     try {
+      console.log('Fetching from Nominatim API...');
       const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`);
       
       if (!response.ok) {
@@ -72,6 +80,7 @@ export function useLocation() {
       }
       
       const data = await response.json();
+      console.log('Nominatim API response:', data);
       
       if (data && data.length > 0) {
         const location = data[0];
@@ -80,20 +89,21 @@ export function useLocation() {
           longitude: parseFloat(location.lon)
         };
         
-        // Update all state in a more predictable order
+        console.log('Setting new position:', newPosition);
+        
+        // Update all state synchronously
         setPosition(newPosition);
         setError(null);
         setLoading(false);
+        setLocationChangeCounter(prev => {
+          console.log('Incrementing location counter from', prev, 'to', prev + 1);
+          return prev + 1;
+        });
         
-        // Use a small timeout to ensure position is set before triggering the counter
-        setTimeout(() => {
-          setLocationChangeCounter(prev => prev + 1);
-          
-          toast({
-            title: "Location Updated",
-            description: `Showing results for ${query}`,
-          });
-        }, 100);
+        toast({
+          title: "Location Updated",
+          description: `Showing results for ${query}`,
+        });
       } else {
         throw new Error('Location not found');
       }
