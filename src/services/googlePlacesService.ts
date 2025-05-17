@@ -1,7 +1,7 @@
 import { PointOfInterest } from "../types";
 
 // Google Places API configuration
-const GOOGLE_API_KEY = "AIzaSyAzCHbNOtqBj7HAZ1-XJ0uXtmqtbvheW-c";
+export const GOOGLE_API_KEY = "AIzaSyAzCHbNOtqBj7HAZ1-XJ0uXtmqtbvheW-c";
 const GOOGLE_PLACES_API_URL = "https://maps.googleapis.com/maps/api/place";
 
 // Category mappings to Google place types

@@ -1,71 +1,53 @@
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { useState } from "react";
+import { GOOGLE_API_KEY } from '../services/googlePlacesService';
 
-import { useState, useEffect } from 'react';
-import { Button } from './ui/button';
-import { Input } from './ui/input';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from './ui/card';
-import { getFoursquareApiKey, setFoursquareApiKey } from '../services/foursquareService';
+export function ApiKeyForm() {
+  const [apiKey, setApiKey] = useState(GOOGLE_API_KEY || '');
+  const [isSubmitted, setIsSubmitted] = useState(false);
 
-interface ApiKeyFormProps {
-  onComplete: () => void;
-}
-
-export function ApiKeyForm({ onComplete }: ApiKeyFormProps) {
-  const [apiKey, setApiKey] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  
-  useEffect(() => {
-    const savedKey = getFoursquareApiKey();
-    if (savedKey) {
-      setApiKey(savedKey);
-    }
-  }, []);
-  
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (apiKey.trim()) {
-      setIsSubmitting(true);
-      setFoursquareApiKey(apiKey.trim());
-      setTimeout(() => {
-        setIsSubmitting(false);
-        onComplete();
-      }, 500);
-    }
+    // Note: In a real application, you would want to validate and securely store the API key
+    // For this demo, we're just showing the form UI
+    setIsSubmitted(true);
   };
-  
+
   return (
-    <Card className="w-full max-w-md mx-auto">
-      <CardHeader>
-        <CardTitle>Foursquare API Key</CardTitle>
-        <CardDescription>
-          Enter your Foursquare Places API key to fetch nearby places.
-          You can get a free API key from the Foursquare Developer Dashboard.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <Input
-            type="text"
-            placeholder="Enter Foursquare API Key"
-            value={apiKey}
-            onChange={(e) => setApiKey(e.target.value)}
-            required
-          />
-          <Button type="submit" className="w-full" disabled={!apiKey.trim() || isSubmitting}>
-            {isSubmitting ? 'Saving...' : 'Save API Key'}
-          </Button>
-          
-          <p className="text-xs text-center text-muted-foreground mt-4">
-            <a 
-              href="https://developer.foursquare.com/docs/places-api-getting-started" 
-              target="_blank" 
+    <form onSubmit={handleSubmit}>
+      <Card>
+        <CardHeader>
+          <CardTitle>Google Places API Key</CardTitle>
+          <CardDescription>
+            Enter your Google Places API key to fetch nearby places.
+            You can get an API key from the Google Cloud Console.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col gap-4">
+            <Input
+              type="text"
+              value={apiKey}
+              onChange={(e) => setApiKey(e.target.value)}
+              placeholder="Enter Google Places API Key"
+              className="w-full"
+            />
+            <Button type="submit" className="w-full">
+              {isSubmitted ? "API Key Saved!" : "Save API Key"}
+            </Button>
+            <a
+              href="https://developers.google.com/maps/documentation/places/web-service/get-api-key"
+              target="_blank"
               rel="noopener noreferrer"
-              className="underline hover:text-primary"
+              className="text-sm text-blue-500 hover:text-blue-600"
             >
-              Learn how to get an API key
+              Learn how to get an API key →
             </a>
-          </p>
-        </form>
-      </CardContent>
-    </Card>
+          </div>
+        </CardContent>
+      </Card>
+    </form>
   );
 }
