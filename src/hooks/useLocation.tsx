@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { toast } from '@/hooks/use-toast';
+import { GOOGLE_API_KEY } from '../services/googlePlacesService';
 
 interface Position {
   latitude: number;
@@ -63,7 +64,7 @@ export function useLocation() {
     );
   }, []);
 
-  // Search for a location by name using Nominatim API (OpenStreetMap)
+  // Search for a location using Google Geocoding API
   const searchLocation = useCallback(async (query: string) => {
     if (!query) return;
     
@@ -72,21 +73,26 @@ export function useLocation() {
     setCustomLocation(query);
     
     try {
-      console.log('Fetching from Nominatim API...');
-      const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`);
+      // Add ", USA" to the query if it's just a zip code to improve accuracy
+      const searchQuery = /^\d{5}(-\d{4})?$/.test(query) ? `${query}, USA` : query;
+      
+      console.log('Fetching from Google Geocoding API...');
+      const response = await fetch(
+        `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(searchQuery)}&key=${GOOGLE_API_KEY}`
+      );
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       
       const data = await response.json();
-      console.log('Nominatim API response:', data);
+      console.log('Geocoding API response:', data);
       
-      if (data && data.length > 0) {
-        const location = data[0];
+      if (data.status === 'OK' && data.results && data.results.length > 0) {
+        const location = data.results[0].geometry.location;
         const newPosition = {
-          latitude: parseFloat(location.lat),
-          longitude: parseFloat(location.lon)
+          latitude: location.lat,
+          longitude: location.lng
         };
         
         console.log('Setting new position:', newPosition);
@@ -102,10 +108,10 @@ export function useLocation() {
         
         toast({
           title: "Location Updated",
-          description: `Showing results for ${query}`,
+          description: `Showing results for ${data.results[0].formatted_address}`,
         });
       } else {
-        throw new Error('Location not found');
+        throw new Error(data.status === 'ZERO_RESULTS' ? 'Location not found' : `Geocoding error: ${data.status}`);
       }
     } catch (error) {
       console.error("Error searching location:", error);
