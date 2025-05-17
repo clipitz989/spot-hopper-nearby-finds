@@ -12,7 +12,7 @@ interface UsePlacesQueryOptions {
 export function usePlacesQuery(options: UsePlacesQueryOptions = {}) {
   const { position, loading: locationLoading, customLocation, locationChangeCounter } = useLocation();
   const { enabled = true, filters } = options;
-
+  
   const query = useQuery({
     queryKey: ['places', position, filters],
     queryFn: async () => {

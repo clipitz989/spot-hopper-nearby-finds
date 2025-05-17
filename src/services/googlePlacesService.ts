@@ -1,29 +1,8 @@
-/// <reference types="@types/google.maps" />
 import { PointOfInterest } from "../types";
 
 // Google Places API configuration
 export const GOOGLE_API_KEY = "AIzaSyAzCHbNOtqBj7HAZ1-XJ0uXtmqtbvheW-c";
-
-declare global {
-  interface Window {
-    google: typeof google;
-  }
-}
-
-// Load Google Maps JavaScript API
-const loadGoogleMapsApi = () => {
-  if (typeof window !== 'undefined' && !window.google) {
-    const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_API_KEY}&libraries=places`;
-    script.async = true;
-    script.defer = true;
-    document.head.appendChild(script);
-    return new Promise((resolve) => {
-      script.onload = () => resolve(window.google);
-    });
-  }
-  return Promise.resolve(window.google);
-};
+const GOOGLE_PLACES_API_URL = "https://maps.googleapis.com/maps/api/place";
 
 // Category mappings to Google place types
 const CATEGORY_MAPPING = {
@@ -53,102 +32,150 @@ export const mapCategoriesToGoogle = (categories: string[]): string[] => {
   );
 };
 
-const getPlaceImage = (photos: google.maps.places.PlacePhoto[] | undefined): string => {
-  if (photos && photos.length > 0) {
-    return photos[0].getUrl();
-  }
-
-  // Fallback images
-  return 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&auto=format&fit=crop';
-};
-
-const getPlaceDetails = (placeId: string, service: google.maps.places.PlacesService): Promise<google.maps.places.PlaceResult> => {
-  return new Promise((resolve, reject) => {
-    service.getDetails(
-      {
-        placeId,
-        fields: ['website', 'formatted_phone_number', 'url']
-      },
-      (result, status) => {
-        if (status === google.maps.places.PlacesServiceStatus.OK && result) {
-          resolve(result);
-        } else {
-          reject(new Error(`Failed to get place details: ${status}`));
-        }
-      }
-    );
-  });
-};
-
-const transformGoogleToPointOfInterest = async (
-  place: google.maps.places.PlaceResult,
-  service: google.maps.places.PlacesService
-): Promise<PointOfInterest> => {
-  let details = {};
-  try {
-    if (place.place_id) {
-      details = await getPlaceDetails(place.place_id, service);
-    }
-  } catch (error) {
-    console.warn('Failed to fetch place details:', error);
-  }
-
-  const combinedPlace = { ...place, ...details };
-
-  return {
-    id: combinedPlace.place_id || '',
-    name: combinedPlace.name || '',
-    category: 'food', // We'll determine this based on types
-    subcategory: combinedPlace.types?.[0]?.replace(/_/g, ' '),
-    description: combinedPlace.vicinity || '',
-    rating: combinedPlace.rating || 4.0,
-    reviews: combinedPlace.user_ratings_total || 0,
-    image: getPlaceImage(combinedPlace.photos),
+interface GooglePlace {
+  place_id: string;
+  name: string;
+  types: string[];
+  vicinity: string;
+  geometry: {
     location: {
-      latitude: combinedPlace.geometry?.location?.lat() || 0,
-      longitude: combinedPlace.geometry?.location?.lng() || 0,
-      address: combinedPlace.vicinity || ''
+      lat: number;
+      lng: number;
+    };
+  };
+  rating?: number;
+  user_ratings_total?: number;
+  photos?: Array<{
+    photo_reference: string;
+    height: number;
+    width: number;
+  }>;
+  price_level?: number;
+  opening_hours?: {
+    open_now?: boolean;
+  };
+}
+
+interface GooglePlacesResponse {
+  results: GooglePlace[];
+  status: string;
+}
+
+const getPlaceImage = (place: GooglePlace): string => {
+  if (place.photos && place.photos.length > 0) {
+    const photoReference = place.photos[0].photo_reference;
+    return `${GOOGLE_PLACES_API_URL}/photo?maxwidth=800&photo_reference=${photoReference}&key=${GOOGLE_API_KEY}`;
+  }
+
+  // Fallback images based on category
+  const type = place.types[0] || '';
+  if (type.includes('restaurant') || type.includes('food') || type.includes('cafe')) {
+    return 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&auto=format&fit=crop';
+  } else if (type.includes('museum') || type.includes('park') || type.includes('attraction')) {
+    return 'https://images.unsplash.com/photo-1544970828-5a98e7055193?w=800&auto=format&fit=crop';
+  } else {
+    return 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=800&auto=format&fit=crop';
+  }
+};
+
+const mapGoogleTypeToCategory = (types: string[]): 'food' | 'attractions' | 'activities' => {
+  const type = types[0]?.toLowerCase() || '';
+  
+  if (type.includes('restaurant') || 
+      type.includes('food') ||
+      type.includes('cafe') ||
+      type.includes('bar') ||
+      type.includes('bakery')) {
+    return 'food';
+  } else if (type.includes('museum') ||
+            type.includes('park') ||
+            type.includes('attraction') ||
+            type.includes('landmark')) {
+    return 'attractions';
+  } else {
+    return 'activities';
+  }
+};
+
+export const transformGoogleToPointOfInterest = (place: GooglePlace): PointOfInterest => {
+  const category = mapGoogleTypeToCategory(place.types);
+  
+  return {
+    id: place.place_id,
+    name: place.name,
+    category,
+    subcategory: place.types[0]?.replace(/_/g, ' '),
+    description: `Located in ${place.vicinity}`,
+    rating: place.rating || 4.0,
+    reviews: place.user_ratings_total || 0,
+    image: getPlaceImage(place),
+    location: {
+      latitude: place.geometry.location.lat,
+      longitude: place.geometry.location.lng,
+      address: place.vicinity
     },
-    priceRange: combinedPlace.price_level as 1 | 2 | 3 | 4,
-    openNow: combinedPlace.opening_hours?.isOpen(),
-    tags: combinedPlace.types?.map(t => t.replace(/_/g, ' ')) || [],
-    contact: {
-      phone: combinedPlace.formatted_phone_number,
-    },
-    website: combinedPlace.website || combinedPlace.url // Fall back to Google Maps URL if no website
+    priceRange: (place.price_level as 1 | 2 | 3 | 4) || undefined,
+    openNow: place.opening_hours?.open_now,
+    tags: place.types.map(t => t.replace(/_/g, ' ')),
+    contact: {}
   };
 };
 
-export const fetchPlaces = async (params: GoogleSearchParams): Promise<PointOfInterest[]> => {
-  await loadGoogleMapsApi();
-  
-  return new Promise((resolve, reject) => {
-    const service = new google.maps.places.PlacesService(document.createElement('div'));
-    
-    const [lat, lng] = params.location.split(',').map(Number);
-    
-    const request = {
-      location: new google.maps.LatLng(lat, lng),
-      radius: params.radius || 10000,
-      type: params.type,
-      openNow: params.opennow,
-      minPriceLevel: params.minprice,
-      maxPriceLevel: params.maxprice
-    };
+const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-    service.nearbySearch(request, async (results, status) => {
-      if (status === google.maps.places.PlacesServiceStatus.OK && results) {
-        try {
-          const places = await Promise.all(
-            results.map(result => transformGoogleToPointOfInterest(result, service))
-          );
-          resolve(places);
-        } catch (error) {
-          reject(error);
-        }
-      } else {
-        reject(new Error(`Google Places API error: ${status}`));
-      }
-    });
+const MAX_RETRIES = 3;
+const INITIAL_RETRY_DELAY = 1000; // 1 second
+
+export const fetchPlaces = async (params: GoogleSearchParams): Promise<PointOfInterest[]> => {
+  // Construct query parameters
+  const queryParams = new URLSearchParams();
+  // Add API key
+  queryParams.append('key', GOOGLE_API_KEY);
+  // Add other parameters
+  Object.entries(params).forEach(([key, value]) => {
+    if (value !== undefined) {
+      queryParams.append(key, value.toString());
+    }
   });
+  
+  let lastError: Error | null = null;
+  
+  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
+    try {
+      const response = await fetch(
+        `${GOOGLE_PLACES_API_URL}/nearbysearch/json?${queryParams}`,
+        { headers: { 'Accept': 'application/json' } }
+      );
+      
+      const data: GooglePlacesResponse = await response.json();
+      
+      if (data.status === 'OVER_QUERY_LIMIT') {
+        const waitTime = INITIAL_RETRY_DELAY * Math.pow(2, attempt);
+        console.log(`Rate limit hit, waiting ${waitTime}ms before retry...`);
+        await wait(waitTime);
+        continue;
+      }
+      
+      if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
+        throw new Error(`Google Places API error: ${data.status}`);
+      }
+      
+      return (data.results || []).map(transformGoogleToPointOfInterest);
+      
+    } catch (error) {
+      console.error(`Error fetching places from Google (attempt ${attempt + 1}/${MAX_RETRIES}):`, error);
+      lastError = error as Error;
+      
+      if (attempt < MAX_RETRIES - 1) {
+        const waitTime = INITIAL_RETRY_DELAY * Math.pow(2, attempt);
+        console.log(`Waiting ${waitTime}ms before retry...`);
+        await wait(waitTime);
+      }
+    }
+  }
+  
+  throw new Error(
+    lastError?.message || 
+    'Failed to fetch places after multiple retries. Please try again later.'
+  );
 }; 
