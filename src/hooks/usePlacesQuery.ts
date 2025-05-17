@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { fetchPlaces, GoogleSearchParams, mapCategoriesToGoogle } from "../services/googlePlacesService";
 import { PointOfInterest, Filter } from "../types";
 import { useLocation } from "./useLocation";
@@ -12,11 +12,20 @@ interface UsePlacesQueryOptions {
 export function usePlacesQuery(options: UsePlacesQueryOptions = {}) {
   const { position, loading: locationLoading, customLocation, locationChangeCounter } = useLocation();
   const { enabled = true, filters } = options;
+  const queryClient = useQueryClient();
 
   console.log('usePlacesQuery render - position:', position, 'counter:', locationChangeCounter);
 
+  // Force query invalidation when location changes
+  useEffect(() => {
+    if (locationChangeCounter > 0) {
+      console.log('Location changed, invalidating places query...');
+      queryClient.invalidateQueries({ queryKey: ['places'] });
+    }
+  }, [locationChangeCounter, queryClient]);
+
   const query = useQuery({
-    queryKey: ['places', position, filters, locationChangeCounter],
+    queryKey: ['places', position?.latitude, position?.longitude, filters],
     queryFn: async () => {
       console.log('Places query function executing with position:', position);
       
