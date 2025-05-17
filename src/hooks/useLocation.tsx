@@ -12,7 +12,6 @@ export function useLocation() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [customLocation, setCustomLocation] = useState<string | null>(null);
-  // Add a change counter to trigger refetches
   const [locationChangeCounter, setLocationChangeCounter] = useState(0);
 
   // Get current location using browser geolocation
@@ -40,14 +39,10 @@ export function useLocation() {
         
         console.log("Setting current position:", newPosition);
         setPosition(newPosition);
-        
-        // Use a callback to ensure we increment after the position is set
-        setLocationChangeCounter(prev => {
-          console.log("Incrementing location counter from", prev, "to", prev + 1);
-          return prev + 1;
-        });
-        
         setLoading(false);
+        
+        // Increment the counter AFTER state is updated
+        setLocationChangeCounter(prev => prev + 1);
         
         toast({
           title: "Location Updated",
@@ -77,37 +72,29 @@ export function useLocation() {
       const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`);
       const data = await response.json();
       
-      console.log("Search location data:", data);
-      
       if (data && data.length > 0) {
         const location = data[0];
-        console.log("Found location:", location);
         
         const newPosition = {
           latitude: parseFloat(location.lat),
           longitude: parseFloat(location.lon)
         };
         
-        console.log("Setting new position:", newPosition);
+        console.log("Found location for search:", query, newPosition);
         
-        // Set position first
+        // Update position first
         setPosition(newPosition);
+        setLoading(false);
         
-        // Then increment the counter after position is set using callback
-        setTimeout(() => {
-          setLocationChangeCounter(prev => {
-            console.log("Incrementing location counter from", prev, "to", prev + 1);
-            return prev + 1;
-          });
-          
-          // Notify user of success
-          toast({
-            title: "Location Updated",
-            description: `Showing results for ${query}`,
-          });
-        }, 100);
+        // Then increment the counter separately
+        setLocationChangeCounter(prev => prev + 1);
         
+        toast({
+          title: "Location Updated",
+          description: `Showing results for ${query}`,
+        });
       } else {
+        setLoading(false);
         toast({
           title: "Location Error",
           description: `Could not find location: ${query}`,
@@ -116,13 +103,12 @@ export function useLocation() {
       }
     } catch (error) {
       console.error("Error searching location:", error);
+      setLoading(false);
       toast({
         title: "Location Error",
         description: "Error searching for location",
         variant: "destructive",
       });
-    } finally {
-      setLoading(false);
     }
   }, []);
 

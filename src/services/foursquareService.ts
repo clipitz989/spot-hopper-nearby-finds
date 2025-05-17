@@ -18,6 +18,9 @@ const CATEGORY_MAPPING = {
   activities: "17000"  // Shops & Services category ID
 };
 
+// Cache for place data to keep ratings and price ranges consistent
+const placesCache: Record<string, PointOfInterest> = {};
+
 export const setFoursquareApiKey = (apiKey: string) => {
   FOURSQUARE_API_KEY = apiKey;
   localStorage.setItem("foursquareApiKey", apiKey);
@@ -135,30 +138,66 @@ const getPlaceImage = (place: FoursquarePlace): string => {
   }
 };
 
+// Generate a consistent rating and price for a place
+const generateConsistentPlaceData = (id: string): {rating: number, priceRange: 1 | 2 | 3 | 4} => {
+  // Create a simple hash from the place ID
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) {
+    hash = ((hash << 5) - hash) + id.charCodeAt(i);
+    hash |= 0; // Convert to 32bit integer
+  }
+  
+  // Generate a rating between 3.5 and 5.0
+  const rating = 3.5 + (Math.abs(hash) % 15) / 10;
+  
+  // Generate price range 1-4
+  const priceRange = (Math.abs(hash) % 4 + 1) as 1 | 2 | 3 | 4;
+  
+  return { rating, priceRange };
+};
+
 export const transformFoursquareToPointOfInterest = (place: FoursquarePlace): PointOfInterest => {
+  const id = place.fsq_id;
   const category = mapCategoryToAppCategory(place.categories);
   const subcategory = place.categories.length > 0 ? place.categories[0].name : undefined;
   
-  return {
-    id: place.fsq_id,
+  // Check if we have this place cached
+  if (placesCache[id]) {
+    // Update only the dynamic properties like distance
+    return {
+      ...placesCache[id],
+      distance: place.distance,
+    };
+  }
+  
+  // Generate consistent rating and price range
+  const { rating, priceRange } = generateConsistentPlaceData(id);
+  
+  const pointOfInterest: PointOfInterest = {
+    id,
     name: place.name,
     category,
     subcategory,
     description: `Located in ${place.location.formatted_address || place.location.locality || 'nearby'}`,
-    rating: Math.random() * 2 + 3, // Random rating between 3 and 5 (Foursquare free API doesn't include ratings)
-    reviews: Math.floor(Math.random() * 100) + 5, // Random review count
+    rating,
+    reviews: Math.floor(Math.abs(id.charCodeAt(0) * 100) % 200) + 5, // Consistent reviews count
     image: getPlaceImage(place),
     location: {
       latitude: place.geocodes.main.latitude,
       longitude: place.geocodes.main.longitude,
       address: place.location.formatted_address || place.location.address || 'Address not available'
     },
-    priceRange: Math.floor(Math.random() * 3) + 1 as 1 | 2 | 3 | 4, // Random price range
+    priceRange,
     openNow: true, // We'll default to true since we'll filter by open_now
     distance: place.distance, // Already in meters
     tags: place.categories.map(c => c.name),
     contact: {}
   };
+  
+  // Cache this place
+  placesCache[id] = pointOfInterest;
+  
+  return pointOfInterest;
 };
 
 export const fetchPlaces = async (params: FoursquareSearchParams): Promise<PointOfInterest[]> => {
