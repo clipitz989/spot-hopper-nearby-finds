@@ -200,11 +200,6 @@ export const transformFoursquareToPointOfInterest = (place: FoursquarePlace): Po
   return pointOfInterest;
 };
 
-const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-
-const MAX_RETRIES = 3;
-const INITIAL_RETRY_DELAY = 1000; // 1 second
-
 export const fetchPlaces = async (params: FoursquareSearchParams): Promise<PointOfInterest[]> => {
   const apiKey = getFoursquareApiKey();
   
@@ -216,56 +211,23 @@ export const fetchPlaces = async (params: FoursquareSearchParams): Promise<Point
     }
   });
   
-  let lastError: Error | null = null;
-  
-  for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
-    try {
-      const response = await fetch(`${FOURSQUARE_API_URL}${FOURSQUARE_PLACES_ENDPOINT}?${queryParams}`, {
-        headers: {
-          'Accept': 'application/json',
-          'Authorization': apiKey
-        }
-      });
-      
-      if (response.status === 429) {
-        // Rate limit hit - wait longer before retry
-        const retryAfter = response.headers.get('Retry-After');
-        const waitTime = retryAfter ? parseInt(retryAfter) * 1000 : INITIAL_RETRY_DELAY * Math.pow(2, attempt);
-        console.log(`Rate limit hit, waiting ${waitTime}ms before retry...`);
-        await wait(waitTime);
-        continue;
+  try {
+    const response = await fetch(`${FOURSQUARE_API_URL}${FOURSQUARE_PLACES_ENDPOINT}?${queryParams}`, {
+      headers: {
+        'Accept': 'application/json',
+        'Authorization': apiKey
       }
-      
-      if (!response.ok) {
-        let errorMessage = `Foursquare API error: ${response.status}`;
-        try {
-          const errorData = await response.json();
-          errorMessage = errorData.message || errorMessage;
-        } catch (e) {
-          // Ignore JSON parse error
-        }
-        throw new Error(errorMessage);
-      }
-      
-      const data: FoursquareResponse = await response.json();
-      return data.results.map(transformFoursquareToPointOfInterest);
-      
-    } catch (error) {
-      console.error(`Error fetching places from Foursquare (attempt ${attempt + 1}/${MAX_RETRIES}):`, error);
-      lastError = error as Error;
-      
-      if (attempt < MAX_RETRIES - 1) {
-        // Wait before retrying, using exponential backoff
-        const waitTime = INITIAL_RETRY_DELAY * Math.pow(2, attempt);
-        console.log(`Waiting ${waitTime}ms before retry...`);
-        await wait(waitTime);
-      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Foursquare API error: ${response.status}`);
     }
+    
+    const data: FoursquareResponse = await response.json();
+    return data.results.map(transformFoursquareToPointOfInterest);
+    
+  } catch (error) {
+    console.error("Error fetching places from Foursquare:", error);
+    throw error;
   }
-  
-  // If we get here, all retries failed
-  throw new Error(
-    lastError?.message || 
-    'Failed to fetch places after multiple retries. Please check your API key and try again later.'
-  );
 };
