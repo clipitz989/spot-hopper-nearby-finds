@@ -93,6 +93,17 @@ interface FoursquarePlace {
   name: string;
   related_places: any;
   timezone: string;
+  hours?: {
+    is_local_holiday: boolean;
+    open_now: boolean;
+    regular: {
+      open: {
+        day: number;
+        start: string;
+        end: string;
+      }[];
+    }[];
+  };
 }
 
 interface FoursquareResponse {
@@ -188,7 +199,7 @@ export const transformFoursquareToPointOfInterest = (place: FoursquarePlace): Po
       address: place.location.formatted_address || place.location.address || 'Address not available'
     },
     priceRange,
-    openNow: true, // We'll default to true since we'll filter by open_now
+    openNow: place.hours?.open_now ?? false, // Use actual hours data
     distance: place.distance, // Already in meters
     tags: place.categories.map(c => c.name),
     contact: {}
@@ -210,6 +221,9 @@ export const fetchPlaces = async (params: FoursquareSearchParams): Promise<Point
       queryParams.append(key, value.toString());
     }
   });
+  
+  // Add fields parameter to get hours information
+  queryParams.append('fields', 'hours');
   
   try {
     const response = await fetch(`${FOURSQUARE_API_URL}${FOURSQUARE_PLACES_ENDPOINT}?${queryParams}`, {
