@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useLocation } from "../hooks/useLocation";
 import { PointOfInterest, Filter } from "../types";
@@ -110,7 +109,9 @@ export default function Home() {
     return (
       <div className="grid gap-4 p-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
         {places.length > 0 ? (
-          places.map(place => (
+          places
+            .filter(place => place.rating >= filters.minRating)
+            .map(place => (
             <PlaceCard
               key={place.id}
               place={place}
@@ -135,7 +136,7 @@ export default function Home() {
   return (
     <div className="pb-16 min-h-screen bg-background">
       <header className="sticky top-0 z-20 bg-background border-b px-4 py-3">
-        <h1 className="text-2xl font-bold text-center">Nearby Finds</h1>
+        <h1 className="text-2xl font-bold text-center">Nearby Finds!</h1>
       </header>
       
       <div className="px-4 pt-4 pb-2">
