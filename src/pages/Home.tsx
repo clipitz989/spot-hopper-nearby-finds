@@ -45,16 +45,24 @@ export default function Home() {
 
   useEffect(() => {
     if (isError && error) {
-      // More informative error message for category issues
       let errorMessage = error.toString();
-      if (errorMessage.includes("400")) {
+      let title = "Error loading places";
+      
+      // Handle rate limit errors
+      if (errorMessage.includes("429") || errorMessage.toLowerCase().includes("rate limit")) {
+        title = "Rate limit reached";
+        errorMessage = "We've hit the Foursquare API rate limit. The app will automatically retry in a moment. If this persists, please try again later.";
+      }
+      // Handle category errors
+      else if (errorMessage.includes("400")) {
         errorMessage = "Invalid category selection or API request. Please try different filters.";
       }
       
       toast({
-        title: "Error loading places",
+        title,
         description: errorMessage,
         variant: "destructive",
+        duration: 5000, // Show for 5 seconds
       });
     }
   }, [isError, error]);
