@@ -13,6 +13,7 @@ export function LocationSearch() {
     e.preventDefault();
     if (searchQuery.trim()) {
       searchLocation(searchQuery.trim());
+      console.log("Searching for location:", searchQuery.trim());
     }
   };
   

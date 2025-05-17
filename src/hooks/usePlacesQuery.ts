@@ -35,6 +35,10 @@ export function usePlacesQuery(options: UsePlacesQueryOptions = {}) {
         }
       }
       
+      console.log("Fetching places with params:", params);
+      console.log("Current position:", position);
+      console.log("Location counter:", locationChangeCounter);
+      
       return fetchPlaces(params);
     },
     enabled: enabled && !locationLoading && !!position,

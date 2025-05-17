@@ -67,13 +67,21 @@ export function useLocation() {
       const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`);
       const data = await response.json();
       
+      console.log("Search location data:", data);
+      
       if (data && data.length > 0) {
         const location = data[0];
-        setPosition({
+        console.log("Found location:", location);
+        
+        const newPosition = {
           latitude: parseFloat(location.lat),
           longitude: parseFloat(location.lon)
-        });
+        };
+        
+        console.log("Setting new position:", newPosition);
+        setPosition(newPosition);
         setLocationChangeCounter(prev => prev + 1);
+        
         toast({
           title: "Location Updated",
           description: `Showing results for ${query}`,
@@ -84,13 +92,16 @@ export function useLocation() {
           description: `Could not find location: ${query}`,
           variant: "destructive",
         });
+        setLoading(false);
       }
     } catch (error) {
+      console.error("Error searching location:", error);
       toast({
         title: "Location Error",
         description: "Error searching for location",
         variant: "destructive",
       });
+      setLoading(false);
     } finally {
       setLoading(false);
     }
