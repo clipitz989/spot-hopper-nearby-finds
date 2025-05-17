@@ -80,7 +80,11 @@ export function useLocation() {
         
         console.log("Setting new position:", newPosition);
         setPosition(newPosition);
+        // Increment the location change counter to trigger a refetch
         setLocationChangeCounter(prev => prev + 1);
+        
+        // Set loading to false AFTER setting the position and counter
+        setLoading(false);
         
         toast({
           title: "Location Updated",
@@ -101,8 +105,6 @@ export function useLocation() {
         description: "Error searching for location",
         variant: "destructive",
       });
-      setLoading(false);
-    } finally {
       setLoading(false);
     }
   };

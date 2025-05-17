@@ -42,6 +42,8 @@ export function usePlacesQuery(options: UsePlacesQueryOptions = {}) {
       return fetchPlaces(params);
     },
     enabled: enabled && !locationLoading && !!position,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    // Force refetch when location changes
+    refetchOnMount: true,
+    refetchOnWindowFocus: false,
   });
 }

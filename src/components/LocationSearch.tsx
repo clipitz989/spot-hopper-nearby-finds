@@ -1,12 +1,12 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { MapPin, Search, Locate } from 'lucide-react';
 import { Input } from './ui/input';
 import { Button } from './ui/button';
 import { useLocation } from '../hooks/useLocation';
 
 export function LocationSearch() {
-  const { searchLocation, getCurrentLocation, customLocation, loading } = useLocation();
+  const { searchLocation, getCurrentLocation, customLocation, loading, position } = useLocation();
   const [searchQuery, setSearchQuery] = useState('');
   
   const handleSearch = (e: React.FormEvent) => {
@@ -16,6 +16,13 @@ export function LocationSearch() {
       console.log("Searching for location:", searchQuery.trim());
     }
   };
+
+  // Update the search box with the current location name when it changes
+  useEffect(() => {
+    if (customLocation) {
+      setSearchQuery(customLocation);
+    }
+  }, [customLocation]);
   
   return (
     <div className="w-full flex items-center gap-2">

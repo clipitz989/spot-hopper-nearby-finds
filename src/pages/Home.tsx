@@ -11,7 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { LocationSearch } from "../components/LocationSearch";
 
 export default function Home() {
-  const { position, loading: locationLoading } = useLocation();
+  const { position, loading: locationLoading, locationChangeCounter } = useLocation();
   const [selectedPlace, setSelectedPlace] = useState<PointOfInterest | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [filters, setFilters] = useState<Filter>({
@@ -31,6 +31,13 @@ export default function Home() {
   } = usePlacesQuery({
     filters
   });
+
+  // Force refetch when location changes
+  useEffect(() => {
+    if (locationChangeCounter > 0) {
+      refetch();
+    }
+  }, [locationChangeCounter, refetch]);
 
   useEffect(() => {
     if (isError && error) {
