@@ -1,9 +1,8 @@
-
 import { useQuery } from "@tanstack/react-query";
-import { fetchPlaces, FoursquareSearchParams, mapCategoriesToFoursquare } from "../services/foursquareService";
 import { PointOfInterest, Filter } from "../types";
 import { useLocation } from "./useLocation";
 import { useEffect, useRef } from "react";
+import { fetchPlaces, FoursquareSearchParams, mapCategoriesToFoursquare } from "../services/foursquareService";
 
 interface UsePlacesQueryOptions {
   enabled?: boolean;
@@ -18,78 +17,41 @@ export function usePlacesQuery(options: UsePlacesQueryOptions = {}) {
   // Create a position string to detect real position changes
   const positionString = position ? `${position.latitude},${position.longitude}` : null;
   
-  // Track whether this is a new position
+  // Track whether this is a new position or just a re-render
   const isNewPosition = positionString !== previousPositionRef.current;
   
-  // Update the ref when position changes
+  // Update the previous position ref
   useEffect(() => {
-    if (positionString) {
-      previousPositionRef.current = positionString;
-    }
+    previousPositionRef.current = positionString;
   }, [positionString]);
   
-  const query = useQuery({
-    queryKey: ['places', positionString, filters, locationChangeCounter],
+  return useQuery<PointOfInterest[], Error>({
+    queryKey: ['places', positionString, filters],
     queryFn: async () => {
       if (!position) {
-        return [];
+        throw new Error('Location not available');
       }
       
-      const params: FoursquareSearchParams = {
+      const searchParams: FoursquareSearchParams = {
         ll: `${position.latitude},${position.longitude}`,
         radius: filters?.maxDistance ? filters.maxDistance * 1000 : 10000, // Convert km to meters
-        limit: 50,
         open_now: filters?.openNow,
+        sort: "DISTANCE", // Default sort by distance
+        limit: 50 // Reasonable limit for initial results
       };
       
-      // Add category filter if specified using the mapping function
-      if (filters?.selectedCategories && filters.selectedCategories.length > 0) {
-        const mappedCategories = mapCategoriesToFoursquare(filters.selectedCategories);
-        if (mappedCategories) {
-          params.categories = mappedCategories;
-        }
+      // Add category filter if selected
+      if (filters?.selectedCategories?.length) {
+        searchParams.categories = mapCategoriesToFoursquare(filters.selectedCategories);
       }
       
-      console.log("Fetching places with params:", params);
+      const places = await fetchPlaces(searchParams);
       
-      try {
-        const places = await fetchPlaces(params);
-        
-        // Ensure we're returning consistent data for ratings and price ranges
-        return places.map(place => ({
-          ...place,
-          // Ensure rating is fixed for this fetch
-          rating: place.rating,
-          // Ensure priceRange is fixed for this fetch
-          priceRange: place.priceRange
-        }));
-      } catch (error) {
-        console.error("Error fetching places:", error);
-        throw error;
-      }
+      // Client-side filtering for minimum rating
+      return places.filter(place => place.rating >= (filters?.minRating || 0));
     },
     enabled: enabled && !locationLoading && !!position,
-    staleTime: Infinity, // Keep the data until explicitly invalidated
-    refetchOnMount: false,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
+    staleTime: 5 * 60 * 1000, // Consider data fresh for 5 minutes
+    refetchOnWindowFocus: false // Don't refetch when window regains focus
   });
-
-  // Force refetch when location counter changes
-  useEffect(() => {
-    if (locationChangeCounter > 0 && query.fetchStatus !== 'fetching' && position) {
-      console.log(`Location change detected (counter: ${locationChangeCounter}), refetching places...`);
-      query.refetch();
-    }
-  }, [locationChangeCounter, position, query]);
-
-  // Force refetch for new positions
-  useEffect(() => {
-    if (isNewPosition && position && !locationLoading) {
-      console.log("New position detected, refetching...");
-      query.refetch();
-    }
-  }, [isNewPosition, position, locationLoading, query]);
-
-  return query;
 }

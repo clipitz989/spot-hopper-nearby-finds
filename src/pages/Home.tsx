@@ -8,11 +8,14 @@ import { usePlacesQuery } from "../hooks/usePlacesQuery";
 import { toast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LocationSearch } from "../components/LocationSearch";
+import { ApiKeyForm } from "../components/ApiKeyForm";
+import { getFoursquareApiKey } from "../services/foursquareService";
 
 export default function Home() {
   const { position, loading: locationLoading, locationChangeCounter } = useLocation();
   const [selectedPlace, setSelectedPlace] = useState<PointOfInterest | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const [showApiKeyForm, setShowApiKeyForm] = useState(!getFoursquareApiKey());
   const [filters, setFilters] = useState<Filter>({
     openNow: false,
     minRating: 0,
@@ -28,12 +31,13 @@ export default function Home() {
     error,
     refetch
   } = usePlacesQuery({
-    filters
+    filters,
+    enabled: !showApiKeyForm
   });
 
   // Force refetch when location changes
   useEffect(() => {
-    if (locationChangeCounter > 0 && position) {
+    if (locationChangeCounter > 0 && position && !showApiKeyForm) {
       console.log(`Location changed (counter: ${locationChangeCounter}), forcing refetch...`);
       // Add a small delay to ensure all state updates have completed
       const timer = setTimeout(() => {
@@ -41,34 +45,17 @@ export default function Home() {
       }, 200);
       return () => clearTimeout(timer);
     }
-  }, [locationChangeCounter, position, refetch]);
+  }, [locationChangeCounter, position, refetch, showApiKeyForm]);
 
   useEffect(() => {
-    if (isError && error) {
-      // More informative error message for category issues
-      let errorMessage = error.toString();
-      if (errorMessage.includes("400")) {
-        errorMessage = "Invalid category selection or API request. Please try different filters.";
-      }
-      
+    if (isError && error instanceof Error) {
       toast({
-        title: "Error loading places",
-        description: errorMessage,
-        variant: "destructive",
+        title: "Error",
+        description: error.message,
+        variant: "destructive"
       });
     }
   }, [isError, error]);
-
-  const handleFilterChange = (newFilters: Filter) => {
-    setFilters(newFilters);
-    // Provide feedback when applying filters
-    if (newFilters.selectedCategories.length > 0) {
-      toast({
-        title: "Applying filters",
-        description: `Finding places${newFilters.selectedCategories.length > 0 ? ' in selected categories' : ''}`,
-      });
-    }
-  };
 
   const handleOpenDetails = (place: PointOfInterest) => {
     setSelectedPlace(place);
@@ -77,75 +64,56 @@ export default function Home() {
 
   const handleCloseDetails = () => {
     setIsDetailsOpen(false);
+    setSelectedPlace(null);
   };
 
-  // Log when position changes to help with debugging
-  useEffect(() => {
-    if (position) {
-      console.log("Position updated in Home:", position);
-    }
-  }, [position]);
-
-  const renderContent = () => {
-    // Show loading state when detecting location or loading places
-    if (locationLoading || placesLoading) {
-      return (
-        <div className="p-4 grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-          {Array(6).fill(0).map((_, index) => (
-            <div key={index} className="border rounded-lg overflow-hidden">
-              <Skeleton className="h-40 w-full" />
-              <div className="p-4">
-                <Skeleton className="h-6 w-2/3 mb-2" />
-                <Skeleton className="h-4 w-full mb-1" />
-                <Skeleton className="h-4 w-1/2" />
-              </div>
-            </div>
-          ))}
-        </div>
-      );
-    }
-
-    // Show places
+  if (showApiKeyForm) {
     return (
-      <div className="grid gap-4 p-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-        {places.length > 0 ? (
-          places
-            .filter(place => place.rating >= filters.minRating)
-            .map(place => (
-            <PlaceCard
-              key={place.id}
-              place={place}
-              onClick={() => handleOpenDetails(place)}
-            />
-          ))
-        ) : (
-          <div className="col-span-full text-center py-8">
-            <p>No places match your current filters.</p>
-            <button 
-              className="mt-4 text-primary underline"
-              onClick={() => refetch()}
-            >
-              Refresh
-            </button>
-          </div>
-        )}
+      <div className="container max-w-7xl mx-auto p-4">
+        <ApiKeyForm onComplete={() => setShowApiKeyForm(false)} />
       </div>
     );
-  };
+  }
 
   return (
-    <div className="pb-16 min-h-screen bg-background">
+    <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-20 bg-background border-b px-4 py-3">
         <h1 className="text-2xl font-bold text-center">Nearby Finds!</h1>
       </header>
       
-      <div className="px-4 pt-4 pb-2">
-        <LocationSearch />
+      <div className="container max-w-7xl mx-auto">
+        <div className="p-4">
+          <LocationSearch />
+        </div>
+        
+        <FilterBar filters={filters} onFilterChange={setFilters} />
+        
+        <div className="relative min-h-[200px]">
+          {(locationLoading || placesLoading) ? (
+            <div className="grid gap-4 p-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+              {[...Array(6)].map((_, i) => (
+                <Skeleton key={i} className="h-[300px] rounded-xl" />
+              ))}
+            </div>
+          ) : places.length > 0 ? (
+            <div className="grid gap-4 p-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+              {places
+                .filter(place => place.rating >= filters.minRating)
+                .map(place => (
+                <PlaceCard
+                  key={place.id}
+                  place={place}
+                  onClick={() => handleOpenDetails(place)}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="p-8 text-center text-muted-foreground">
+              No places found nearby. Try adjusting your filters or location.
+            </div>
+          )}
+        </div>
       </div>
-      
-      <FilterBar filters={filters} onFilterChange={handleFilterChange} />
-      
-      {renderContent()}
       
       {selectedPlace && (
         <PlaceDetails

@@ -1,4 +1,3 @@
-
 export interface PointOfInterest {
   id: string;
   name: string;
@@ -15,6 +14,7 @@ export interface PointOfInterest {
   };
   priceRange?: 1 | 2 | 3 | 4;
   openNow?: boolean;
+  openingHours?: string[];  // Array of weekday opening hours text
   distance?: number; // in meters
   tags: string[];
   contact?: {

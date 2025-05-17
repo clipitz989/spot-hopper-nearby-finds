@@ -93,6 +93,16 @@ interface FoursquarePlace {
   name: string;
   related_places: any;
   timezone: string;
+  hours?: {
+    display?: string;
+    is_local_holiday?: boolean;
+    open_now?: boolean;
+    regular?: {
+      days: number[];
+      open: string;  // HH:MM format
+      close: string; // HH:MM format
+    }[];
+  };
 }
 
 interface FoursquareResponse {
@@ -163,10 +173,26 @@ export const transformFoursquareToPointOfInterest = (place: FoursquarePlace): Po
   
   // Check if we have this place cached
   if (placesCache[id]) {
-    // Update only the dynamic properties like distance
+    // Update only the dynamic properties like distance and opening hours
     return {
       ...placesCache[id],
       distance: place.distance,
+      openNow: place.hours?.open_now ?? false,
+      openingHours: place.hours?.regular?.map(hours => {
+        const days = hours.days.map(day => {
+          switch(day) {
+            case 1: return "Monday";
+            case 2: return "Tuesday";
+            case 3: return "Wednesday";
+            case 4: return "Thursday";
+            case 5: return "Friday";
+            case 6: return "Saturday";
+            case 7: return "Sunday";
+            default: return "";
+          }
+        });
+        return `${days.join(", ")}: ${hours.open} - ${hours.close}`;
+      })
     };
   }
   
@@ -188,8 +214,23 @@ export const transformFoursquareToPointOfInterest = (place: FoursquarePlace): Po
       address: place.location.formatted_address || place.location.address || 'Address not available'
     },
     priceRange,
-    openNow: true, // We'll default to true since we'll filter by open_now
-    distance: place.distance, // Already in meters
+    openNow: place.hours?.open_now ?? false,
+    openingHours: place.hours?.regular?.map(hours => {
+      const days = hours.days.map(day => {
+        switch(day) {
+          case 1: return "Monday";
+          case 2: return "Tuesday";
+          case 3: return "Wednesday";
+          case 4: return "Thursday";
+          case 5: return "Friday";
+          case 6: return "Saturday";
+          case 7: return "Sunday";
+          default: return "";
+        }
+      });
+      return `${days.join(", ")}: ${hours.open} - ${hours.close}`;
+    }),
+    distance: place.distance,
     tags: place.categories.map(c => c.name),
     contact: {}
   };
@@ -203,6 +244,9 @@ export const transformFoursquareToPointOfInterest = (place: FoursquarePlace): Po
 export const fetchPlaces = async (params: FoursquareSearchParams): Promise<PointOfInterest[]> => {
   const apiKey = getFoursquareApiKey();
   
+  // Add fields parameter to get opening hours
+  const fields = "fsq_id,name,categories,geocodes,location,distance,timezone,hours";
+  
   // Construct query parameters
   const queryParams = new URLSearchParams();
   Object.entries(params).forEach(([key, value]) => {
@@ -210,6 +254,7 @@ export const fetchPlaces = async (params: FoursquareSearchParams): Promise<Point
       queryParams.append(key, value.toString());
     }
   });
+  queryParams.append("fields", fields);
   
   try {
     const response = await fetch(`${FOURSQUARE_API_URL}${FOURSQUARE_PLACES_ENDPOINT}?${queryParams}`, {
