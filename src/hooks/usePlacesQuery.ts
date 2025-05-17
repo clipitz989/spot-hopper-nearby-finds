@@ -1,6 +1,5 @@
-
 import { useQuery } from "@tanstack/react-query";
-import { fetchPlaces, FoursquareSearchParams, mapCategoriesToFoursquare } from "../services/foursquareService";
+import { fetchPlaces, GoogleSearchParams, mapCategoriesToGoogle } from "../services/googlePlacesService";
 import { PointOfInterest, Filter } from "../types";
 import { useLocation } from "./useLocation";
 import { useEffect, useRef } from "react";
@@ -12,42 +11,34 @@ interface UsePlacesQueryOptions {
 
 export function usePlacesQuery(options: UsePlacesQueryOptions = {}) {
   const { position, loading: locationLoading, customLocation, locationChangeCounter } = useLocation();
-  const { filters, enabled = true } = options;
-  const previousPositionRef = useRef<string | null>(null);
-  
-  // Create a position string to detect real position changes
-  const positionString = position ? `${position.latitude},${position.longitude}` : null;
-  
-  // Track whether this is a new position
-  const isNewPosition = positionString !== previousPositionRef.current;
-  
-  // Update the ref when position changes
-  useEffect(() => {
-    if (positionString) {
-      previousPositionRef.current = positionString;
-    }
-  }, [positionString]);
-  
+  const { enabled = true, filters } = options;
+
   const query = useQuery({
-    queryKey: ['places', positionString, filters, locationChangeCounter],
+    queryKey: ['places', position, filters],
     queryFn: async () => {
       if (!position) {
         return [];
       }
       
-      const params: FoursquareSearchParams = {
-        ll: `${position.latitude},${position.longitude}`,
+      const params: GoogleSearchParams = {
+        location: `${position.latitude},${position.longitude}`,
         radius: filters?.maxDistance ? filters.maxDistance * 1000 : 10000, // Convert km to meters
-        limit: 50,
-        open_now: filters?.openNow,
+        opennow: filters?.openNow,
       };
       
-      // Add category filter if specified using the mapping function
+      // Add category filter if specified
       if (filters?.selectedCategories && filters.selectedCategories.length > 0) {
-        const mappedCategories = mapCategoriesToFoursquare(filters.selectedCategories);
-        if (mappedCategories) {
-          params.categories = mappedCategories;
+        const types = mapCategoriesToGoogle(filters.selectedCategories);
+        if (types.length > 0) {
+          // Google Places API only allows one type at a time, so we'll use the first one
+          params.type = types[0];
         }
+      }
+      
+      // Add price range filter
+      if (filters?.priceRange) {
+        params.minprice = filters.priceRange[0] - 1; // Google uses 0-4 scale
+        params.maxprice = filters.priceRange[1] - 1;
       }
       
       console.log("Fetching places with params:", params);
@@ -55,14 +46,9 @@ export function usePlacesQuery(options: UsePlacesQueryOptions = {}) {
       try {
         const places = await fetchPlaces(params);
         
-        // Ensure we're returning consistent data for ratings and price ranges
-        return places.map(place => ({
-          ...place,
-          // Ensure rating is fixed for this fetch
-          rating: place.rating,
-          // Ensure priceRange is fixed for this fetch
-          priceRange: place.priceRange
-        }));
+        // Filter by minimum rating on the client side since Google Places API
+        // doesn't support minimum rating filter
+        return places.filter(place => place.rating >= (filters?.minRating || 0));
       } catch (error) {
         console.error("Error fetching places:", error);
         throw error;
@@ -82,14 +68,6 @@ export function usePlacesQuery(options: UsePlacesQueryOptions = {}) {
       query.refetch();
     }
   }, [locationChangeCounter, position, query]);
-
-  // Force refetch for new positions
-  useEffect(() => {
-    if (isNewPosition && position && !locationLoading) {
-      console.log("New position detected, refetching...");
-      query.refetch();
-    }
-  }, [isNewPosition, position, locationLoading, query]);
 
   return query;
 }
