@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Filter as FilterIcon } from "lucide-react";
 import { Button } from "./ui/button";
@@ -15,6 +14,7 @@ interface FilterBarProps {
 
 export function FilterBar({ filters, onFilterChange }: FilterBarProps) {
   const [localFilters, setLocalFilters] = useState<Filter>(filters);
+  const [isOpen, setIsOpen] = useState(false);
   
   const handleOpenNowToggle = (checked: boolean) => {
     setLocalFilters(prev => ({ ...prev, openNow: checked }));
@@ -44,13 +44,14 @@ export function FilterBar({ filters, onFilterChange }: FilterBarProps) {
   
   const handleApplyFilters = () => {
     onFilterChange(localFilters);
+    setIsOpen(false);
   };
   
   return (
     <div className="w-full py-2 px-4 bg-background border-b sticky top-0 z-10">
       <div className="flex justify-between items-center">
         <div className="flex gap-2">
-          <Sheet>
+          <Sheet open={isOpen} onOpenChange={setIsOpen}>
             <SheetTrigger asChild>
               <Button variant="outline" size="sm">
                 <FilterIcon size={16} className="mr-2" />
