@@ -10,6 +10,9 @@ declare global {
   }
 }
 
+let placesService: google.maps.places.PlacesService | null = null;
+let mapElement: HTMLDivElement | null = null;
+
 // Load Google Maps JavaScript API
 const loadGoogleMapsApi = () => {
   if (typeof window !== 'undefined' && !window.google) {
@@ -23,6 +26,23 @@ const loadGoogleMapsApi = () => {
     });
   }
   return Promise.resolve(window.google);
+};
+
+// Initialize the Places service with a proper map
+const initPlacesService = () => {
+  if (!mapElement) {
+    mapElement = document.createElement('div');
+    mapElement.style.display = 'none';
+    document.body.appendChild(mapElement);
+    
+    const map = new google.maps.Map(mapElement, {
+      center: { lat: 0, lng: 0 },
+      zoom: 1
+    });
+    
+    placesService = new google.maps.places.PlacesService(map);
+  }
+  return placesService;
 };
 
 // Category mappings to Google place types
@@ -55,7 +75,11 @@ export const mapCategoriesToGoogle = (categories: string[]): string[] => {
 
 const getPlaceImage = (photos: google.maps.places.PlacePhoto[] | undefined): string => {
   if (photos && photos.length > 0) {
-    return photos[0].getUrl();
+    try {
+      return photos[0].getUrl();
+    } catch (error) {
+      console.error('Error getting place photo:', error);
+    }
   }
 
   // Fallback images
@@ -63,10 +87,23 @@ const getPlaceImage = (photos: google.maps.places.PlacePhoto[] | undefined): str
 };
 
 const transformGoogleToPointOfInterest = (place: google.maps.places.PlaceResult): PointOfInterest => {
+  let category: 'food' | 'attractions' | 'activities' = 'food';
+  
+  // Determine category based on place types
+  if (place.types) {
+    if (place.types.some(type => CATEGORY_MAPPING.food.includes(type))) {
+      category = 'food';
+    } else if (place.types.some(type => CATEGORY_MAPPING.attractions.includes(type))) {
+      category = 'attractions';
+    } else if (place.types.some(type => CATEGORY_MAPPING.activities.includes(type))) {
+      category = 'activities';
+    }
+  }
+
   return {
     id: place.place_id || '',
     name: place.name || '',
-    category: 'food', // We'll determine this based on types
+    category,
     subcategory: place.types?.[0]?.replace(/_/g, ' '),
     description: place.vicinity || '',
     rating: place.rating || 4.0,
@@ -88,25 +125,40 @@ export const fetchPlaces = async (params: GoogleSearchParams): Promise<PointOfIn
   await loadGoogleMapsApi();
   
   return new Promise((resolve, reject) => {
-    const service = new google.maps.places.PlacesService(document.createElement('div'));
-    
-    const [lat, lng] = params.location.split(',').map(Number);
-    
-    const request = {
-      location: new google.maps.LatLng(lat, lng),
-      radius: params.radius || 10000,
-      type: params.type,
-      openNow: params.opennow,
-      minPriceLevel: params.minprice,
-      maxPriceLevel: params.maxprice
-    };
-
-    service.nearbySearch(request, (results, status) => {
-      if (status === google.maps.places.PlacesServiceStatus.OK && results) {
-        resolve(results.map(transformGoogleToPointOfInterest));
-      } else {
-        reject(new Error(`Google Places API error: ${status}`));
+    try {
+      const service = initPlacesService();
+      if (!service) {
+        throw new Error('Failed to initialize Places service');
       }
-    });
+      
+      const [lat, lng] = params.location.split(',').map(Number);
+      if (isNaN(lat) || isNaN(lng)) {
+        throw new Error('Invalid location coordinates');
+      }
+      
+      const request = {
+        location: new google.maps.LatLng(lat, lng),
+        radius: params.radius || 10000,
+        type: params.type,
+        openNow: params.opennow,
+        minPriceLevel: params.minprice,
+        maxPriceLevel: params.maxprice
+      };
+
+      console.log('Searching places with request:', request);
+      
+      service.nearbySearch(request, (results, status, pagination) => {
+        if (status === google.maps.places.PlacesServiceStatus.OK && results) {
+          console.log('Found places:', results.length);
+          resolve(results.map(transformGoogleToPointOfInterest));
+        } else {
+          console.error('Places API error:', status);
+          reject(new Error(`Google Places API error: ${status}`));
+        }
+      });
+    } catch (error) {
+      console.error('Error in fetchPlaces:', error);
+      reject(error);
+    }
   });
 }; 
