@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { toast } from '@/hooks/use-toast';
 
@@ -37,11 +36,8 @@ export function useLocation() {
           longitude: position.coords.longitude
         };
         
-        console.log("Setting current position:", newPosition);
         setPosition(newPosition);
         setLoading(false);
-        
-        // Increment the counter AFTER state is updated
         setLocationChangeCounter(prev => prev + 1);
         
         toast({
@@ -70,43 +66,46 @@ export function useLocation() {
     
     try {
       const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
       const data = await response.json();
       
       if (data && data.length > 0) {
         const location = data[0];
-        
         const newPosition = {
           latitude: parseFloat(location.lat),
           longitude: parseFloat(location.lon)
         };
         
-        console.log("Found location for search:", query, newPosition);
-        
-        // Update position first
+        // Update all state in a more predictable order
         setPosition(newPosition);
+        setError(null);
         setLoading(false);
         
-        // Then increment the counter separately
-        setLocationChangeCounter(prev => prev + 1);
-        
-        toast({
-          title: "Location Updated",
-          description: `Showing results for ${query}`,
-        });
+        // Use a small timeout to ensure position is set before triggering the counter
+        setTimeout(() => {
+          setLocationChangeCounter(prev => prev + 1);
+          
+          toast({
+            title: "Location Updated",
+            description: `Showing results for ${query}`,
+          });
+        }, 100);
       } else {
-        setLoading(false);
-        toast({
-          title: "Location Error",
-          description: `Could not find location: ${query}`,
-          variant: "destructive",
-        });
+        throw new Error('Location not found');
       }
     } catch (error) {
       console.error("Error searching location:", error);
+      setError(error instanceof Error ? error.message : 'Error searching for location');
       setLoading(false);
+      setPosition(null); // Clear position on error
+      
       toast({
         title: "Location Error",
-        description: "Error searching for location",
+        description: error instanceof Error ? error.message : "Error searching for location",
         variant: "destructive",
       });
     }

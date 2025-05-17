@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { fetchPlaces, GoogleSearchParams, mapCategoriesToGoogle } from "../services/googlePlacesService";
 import { PointOfInterest, Filter } from "../types";
 import { useLocation } from "./useLocation";
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 
 interface UsePlacesQueryOptions {
   enabled?: boolean;
@@ -14,10 +14,10 @@ export function usePlacesQuery(options: UsePlacesQueryOptions = {}) {
   const { enabled = true, filters } = options;
 
   const query = useQuery({
-    queryKey: ['places', position, filters],
+    queryKey: ['places', position, filters, locationChangeCounter],
     queryFn: async () => {
       if (!position) {
-        return [];
+        throw new Error('No location available');
       }
       
       const params: GoogleSearchParams = {
@@ -41,8 +41,6 @@ export function usePlacesQuery(options: UsePlacesQueryOptions = {}) {
         params.maxprice = filters.priceRange[1] - 1;
       }
       
-      console.log("Fetching places with params:", params);
-      
       try {
         const places = await fetchPlaces(params);
         
@@ -55,19 +53,10 @@ export function usePlacesQuery(options: UsePlacesQueryOptions = {}) {
       }
     },
     enabled: enabled && !locationLoading && !!position,
-    staleTime: Infinity, // Keep the data until explicitly invalidated
-    refetchOnMount: false,
-    refetchOnWindowFocus: false,
-    refetchOnReconnect: false,
+    staleTime: 0, // Always refetch when query key changes
+    gcTime: 1000 * 60 * 5, // Cache for 5 minutes
+    retry: 1, // Only retry once on failure
   });
-
-  // Force refetch when location counter changes
-  useEffect(() => {
-    if (locationChangeCounter > 0 && query.fetchStatus !== 'fetching' && position) {
-      console.log(`Location change detected (counter: ${locationChangeCounter}), refetching places...`);
-      query.refetch();
-    }
-  }, [locationChangeCounter, position, query]);
 
   return query;
 }
