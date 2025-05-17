@@ -34,10 +34,15 @@ export default function Home() {
 
   // Force refetch when location changes
   useEffect(() => {
-    if (locationChangeCounter > 0) {
-      refetch();
+    if (locationChangeCounter > 0 && position) {
+      console.log(`Location changed (counter: ${locationChangeCounter}), forcing refetch...`);
+      // Add a small delay to ensure all state updates have completed
+      const timer = setTimeout(() => {
+        refetch();
+      }, 200);
+      return () => clearTimeout(timer);
     }
-  }, [locationChangeCounter, refetch]);
+  }, [locationChangeCounter, position, refetch]);
 
   useEffect(() => {
     if (isError && error) {
@@ -74,6 +79,13 @@ export default function Home() {
   const handleCloseDetails = () => {
     setIsDetailsOpen(false);
   };
+
+  // Log when position changes to help with debugging
+  useEffect(() => {
+    if (position) {
+      console.log("Position updated in Home:", position);
+    }
+  }, [position]);
 
   const renderContent = () => {
     // Show loading state when detecting location or loading places

@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { toast } from '@/hooks/use-toast';
 
 interface Position {
@@ -16,7 +16,7 @@ export function useLocation() {
   const [locationChangeCounter, setLocationChangeCounter] = useState(0);
 
   // Get current location using browser geolocation
-  const getCurrentLocation = () => {
+  const getCurrentLocation = useCallback(() => {
     setLoading(true);
     setCustomLocation(null);
     
@@ -33,12 +33,22 @@ export function useLocation() {
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        setPosition({
+        const newPosition = {
           latitude: position.coords.latitude,
           longitude: position.coords.longitude
+        };
+        
+        console.log("Setting current position:", newPosition);
+        setPosition(newPosition);
+        
+        // Use a callback to ensure we increment after the position is set
+        setLocationChangeCounter(prev => {
+          console.log("Incrementing location counter from", prev, "to", prev + 1);
+          return prev + 1;
         });
+        
         setLoading(false);
-        setLocationChangeCounter(prev => prev + 1);
+        
         toast({
           title: "Location Updated",
           description: "Using your current location",
@@ -54,10 +64,10 @@ export function useLocation() {
         });
       }
     );
-  };
+  }, []);
 
   // Search for a location by name using Nominatim API (OpenStreetMap)
-  const searchLocation = async (query: string) => {
+  const searchLocation = useCallback(async (query: string) => {
     if (!query) return;
     
     setLoading(true);
@@ -79,24 +89,30 @@ export function useLocation() {
         };
         
         console.log("Setting new position:", newPosition);
+        
+        // Set position first
         setPosition(newPosition);
-        // Increment the location change counter to trigger a refetch
-        setLocationChangeCounter(prev => prev + 1);
         
-        // Set loading to false AFTER setting the position and counter
-        setLoading(false);
+        // Then increment the counter after position is set using callback
+        setTimeout(() => {
+          setLocationChangeCounter(prev => {
+            console.log("Incrementing location counter from", prev, "to", prev + 1);
+            return prev + 1;
+          });
+          
+          // Notify user of success
+          toast({
+            title: "Location Updated",
+            description: `Showing results for ${query}`,
+          });
+        }, 100);
         
-        toast({
-          title: "Location Updated",
-          description: `Showing results for ${query}`,
-        });
       } else {
         toast({
           title: "Location Error",
           description: `Could not find location: ${query}`,
           variant: "destructive",
         });
-        setLoading(false);
       }
     } catch (error) {
       console.error("Error searching location:", error);
@@ -105,14 +121,15 @@ export function useLocation() {
         description: "Error searching for location",
         variant: "destructive",
       });
+    } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   // Initialize with the user's current location
   useEffect(() => {
     getCurrentLocation();
-  }, []);
+  }, [getCurrentLocation]);
 
   return { 
     position, 

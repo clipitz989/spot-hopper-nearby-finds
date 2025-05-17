@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { fetchPlaces, FoursquareSearchParams, mapCategoriesToFoursquare } from "../services/foursquareService";
 import { PointOfInterest, Filter } from "../types";
 import { useLocation } from "./useLocation";
+import { useEffect } from "react";
 
 interface UsePlacesQueryOptions {
   enabled?: boolean;
@@ -13,7 +14,7 @@ export function usePlacesQuery(options: UsePlacesQueryOptions = {}) {
   const { position, loading: locationLoading, customLocation, locationChangeCounter } = useLocation();
   const { filters, enabled = true } = options;
   
-  return useQuery({
+  const query = useQuery({
     queryKey: ['places', position, filters, customLocation, locationChangeCounter],
     queryFn: async () => {
       if (!position) {
@@ -43,7 +44,18 @@ export function usePlacesQuery(options: UsePlacesQueryOptions = {}) {
     },
     enabled: enabled && !locationLoading && !!position,
     // Force refetch when location changes
-    refetchOnMount: true,
+    refetchOnMount: "always",
     refetchOnWindowFocus: false,
+    staleTime: 0, // Don't cache results to ensure fresh data on location changes
   });
+
+  // Explicitly refetch when location changes
+  useEffect(() => {
+    if (locationChangeCounter > 0 && position && !locationLoading) {
+      console.log("Location change detected, refetching places...");
+      query.refetch();
+    }
+  }, [locationChangeCounter, position, locationLoading, query]);
+
+  return query;
 }
