@@ -1,10 +1,10 @@
+
 import { Heart, MapPin, Phone, Globe, Star } from "lucide-react";
 import { PointOfInterest } from "../types";
 import { useFavorites } from "../contexts/FavoritesContext";
 import { Button } from "./ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "./ui/dialog";
 import { CategoryIcon } from "./CategoryIcon";
-import { OpeningHours } from "./OpeningHours";
 
 interface PlaceDetailsProps {
   place: PointOfInterest;
@@ -81,11 +81,6 @@ export function PlaceDetails({ place, isOpen, onClose }: PlaceDetailsProps) {
                 )}
               </div>
             </div>
-            
-            <OpeningHours 
-              openNow={place.openNow ?? false}
-              hours={place.openingHours}
-            />
             
             {place.contact?.phone && (
               <div className="flex items-start gap-3">

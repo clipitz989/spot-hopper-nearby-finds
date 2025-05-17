@@ -1,3 +1,4 @@
+
 import { Heart } from "lucide-react";
 import { PointOfInterest } from "../types";
 import { useFavorites } from "../contexts/FavoritesContext";
@@ -73,9 +74,11 @@ export const PlaceCard = React.memo(({ place, onClick }: PlaceCardProps) => {
             </span>
           )}
         </div>
-        <span className={`text-xs font-medium ${place.openNow ? 'text-green-600' : 'text-red-600'}`}>
-          {place.openNow ? 'Open now' : 'Closed'}
-        </span>
+        {place.openNow !== undefined && (
+          <span className={`text-xs ${place.openNow ? 'text-green-600' : 'text-red-600'}`}>
+            {place.openNow ? 'Open now' : 'Closed'}
+          </span>
+        )}
       </CardFooter>
     </Card>
   );
