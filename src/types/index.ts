@@ -1,4 +1,3 @@
-
 export interface PointOfInterest {
   id: string;
   name: string;
@@ -17,10 +16,11 @@ export interface PointOfInterest {
   openNow?: boolean;
   distance?: number; // in meters
   tags: string[];
-  contact?: {
+  contact: {
     phone?: string;
-    website?: string;
+    email?: string;
   };
+  website?: string;
   isFavorite?: boolean;
 }
 

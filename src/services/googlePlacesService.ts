@@ -62,25 +62,60 @@ const getPlaceImage = (photos: google.maps.places.PlacePhoto[] | undefined): str
   return 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&auto=format&fit=crop';
 };
 
-const transformGoogleToPointOfInterest = (place: google.maps.places.PlaceResult): PointOfInterest => {
+const getPlaceDetails = (placeId: string, service: google.maps.places.PlacesService): Promise<google.maps.places.PlaceResult> => {
+  return new Promise((resolve, reject) => {
+    service.getDetails(
+      {
+        placeId,
+        fields: ['website', 'formatted_phone_number', 'url']
+      },
+      (result, status) => {
+        if (status === google.maps.places.PlacesServiceStatus.OK && result) {
+          resolve(result);
+        } else {
+          reject(new Error(`Failed to get place details: ${status}`));
+        }
+      }
+    );
+  });
+};
+
+const transformGoogleToPointOfInterest = async (
+  place: google.maps.places.PlaceResult,
+  service: google.maps.places.PlacesService
+): Promise<PointOfInterest> => {
+  let details = {};
+  try {
+    if (place.place_id) {
+      details = await getPlaceDetails(place.place_id, service);
+    }
+  } catch (error) {
+    console.warn('Failed to fetch place details:', error);
+  }
+
+  const combinedPlace = { ...place, ...details };
+
   return {
-    id: place.place_id || '',
-    name: place.name || '',
+    id: combinedPlace.place_id || '',
+    name: combinedPlace.name || '',
     category: 'food', // We'll determine this based on types
-    subcategory: place.types?.[0]?.replace(/_/g, ' '),
-    description: place.vicinity || '',
-    rating: place.rating || 4.0,
-    reviews: place.user_ratings_total || 0,
-    image: getPlaceImage(place.photos),
+    subcategory: combinedPlace.types?.[0]?.replace(/_/g, ' '),
+    description: combinedPlace.vicinity || '',
+    rating: combinedPlace.rating || 4.0,
+    reviews: combinedPlace.user_ratings_total || 0,
+    image: getPlaceImage(combinedPlace.photos),
     location: {
-      latitude: place.geometry?.location?.lat() || 0,
-      longitude: place.geometry?.location?.lng() || 0,
-      address: place.vicinity || ''
+      latitude: combinedPlace.geometry?.location?.lat() || 0,
+      longitude: combinedPlace.geometry?.location?.lng() || 0,
+      address: combinedPlace.vicinity || ''
     },
-    priceRange: place.price_level as 1 | 2 | 3 | 4,
-    openNow: place.opening_hours?.isOpen(),
-    tags: place.types?.map(t => t.replace(/_/g, ' ')) || [],
-    contact: {}
+    priceRange: combinedPlace.price_level as 1 | 2 | 3 | 4,
+    openNow: combinedPlace.opening_hours?.isOpen(),
+    tags: combinedPlace.types?.map(t => t.replace(/_/g, ' ')) || [],
+    contact: {
+      phone: combinedPlace.formatted_phone_number,
+    },
+    website: combinedPlace.website || combinedPlace.url // Fall back to Google Maps URL if no website
   };
 };
 
@@ -101,9 +136,16 @@ export const fetchPlaces = async (params: GoogleSearchParams): Promise<PointOfIn
       maxPriceLevel: params.maxprice
     };
 
-    service.nearbySearch(request, (results, status) => {
+    service.nearbySearch(request, async (results, status) => {
       if (status === google.maps.places.PlacesServiceStatus.OK && results) {
-        resolve(results.map(transformGoogleToPointOfInterest));
+        try {
+          const places = await Promise.all(
+            results.map(result => transformGoogleToPointOfInterest(result, service))
+          );
+          resolve(places);
+        } catch (error) {
+          reject(error);
+        }
       } else {
         reject(new Error(`Google Places API error: ${status}`));
       }
