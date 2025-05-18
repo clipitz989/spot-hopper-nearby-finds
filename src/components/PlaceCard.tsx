@@ -1,4 +1,3 @@
-
 import { Heart } from "lucide-react";
 import { PointOfInterest } from "../types";
 import { useFavorites } from "../contexts/FavoritesContext";
@@ -60,9 +59,7 @@ export const PlaceCard = React.memo(({ place, onClick }: PlaceCardProps) => {
         <p className="text-sm text-muted-foreground">{place.location.address}</p>
         {place.distance !== undefined && (
           <p className="text-sm text-muted-foreground mt-1">
-            {(place.distance < 1000) 
-              ? `${Math.round(place.distance)} m away` 
-              : `${(place.distance / 1000).toFixed(1)} km away`}
+            {place.distance} miles away
           </p>
         )}
       </CardContent>

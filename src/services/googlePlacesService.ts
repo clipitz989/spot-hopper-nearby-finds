@@ -59,9 +59,54 @@ const loadGoogleMapsApi = () => {
 
 // Category mappings to Google place types
 const CATEGORY_MAPPING = {
-  food: ["restaurant", "cafe", "bar", "bakery", "meal_takeaway"],
-  attractions: ["tourist_attraction", "museum", "park", "art_gallery", "landmark"],
-  activities: ["shopping_mall", "store", "gym", "spa", "amusement_park"]
+  food: [
+    "restaurant",
+    "cafe",
+    "bar",
+    "bakery",
+    "meal_takeaway",
+    "meal_delivery",
+    "food",
+    "night_club",
+    "supermarket",
+    "grocery_or_supermarket",
+    "deli",
+    "convenience_store",
+    "liquor_store"
+  ],
+  attractions: [
+    "tourist_attraction",
+    "museum",
+    "park",
+    "art_gallery",
+    "landmark",
+    "amusement_park",
+    "aquarium",
+    "church",
+    "city_hall",
+    "library",
+    "movie_theater",
+    "zoo",
+    "stadium",
+    "point_of_interest"
+  ],
+  activities: [
+    "shopping_mall",
+    "store",
+    "gym",
+    "spa",
+    "amusement_park",
+    "bowling_alley",
+    "casino",
+    "movie_theater",
+    "shopping_mall",
+    "clothing_store",
+    "department_store",
+    "electronics_store",
+    "fitness_center",
+    "hair_care",
+    "beauty_salon"
+  ]
 };
 
 export interface GoogleSearchParams {
@@ -122,7 +167,13 @@ const transformGoogleToPointOfInterest = (place: google.maps.places.PlaceResult,
           Math.cos(φ1) * Math.cos(φ2) *
           Math.sin(Δλ/2) * Math.sin(Δλ/2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-  const distance = Math.round(R * c); // Distance in meters
+  const distanceInMeters = R * c;
+  const rawMiles = distanceInMeters * 0.000621371;
+  
+  // Format distance with appropriate precision
+  const distanceInMiles = rawMiles < 1 ? 
+    +rawMiles.toFixed(2) : // Show 2 decimals for distances under 1 mile
+    +rawMiles.toFixed(1);  // Show 1 decimal for distances over 1 mile
   
   // Otherwise create a new place object
   const poi: PointOfInterest = {
@@ -141,7 +192,7 @@ const transformGoogleToPointOfInterest = (place: google.maps.places.PlaceResult,
     },
     priceRange: place.price_level as 1 | 2 | 3 | 4,
     openNow: place.opening_hours?.isOpen(),
-    distance: distance,
+    distance: distanceInMiles,
     tags: place.types?.map(t => t.replace(/_/g, ' ')) || [],
     contact: {}
   };
@@ -166,8 +217,12 @@ export const fetchPlaces = async (params: GoogleSearchParams): Promise<PointOfIn
         
         const request = {
           location: new google.maps.LatLng(lat, lng),
-          radius: params.radius || 10000,
+          radius: 5000, // Set a consistent radius
           type: params.type,
+          keyword: params.type === 'restaurant' ? 'restaurant food' : 
+                  params.type === 'tourist_attraction' ? 'attraction tourism' :
+                  params.type === 'shopping_mall' ? 'shopping activities' :
+                  undefined,
           openNow: params.opennow,
           minPriceLevel: params.minprice,
           maxPriceLevel: params.maxprice
@@ -180,7 +235,27 @@ export const fetchPlaces = async (params: GoogleSearchParams): Promise<PointOfIn
           
           if (status === google.maps.places.PlacesServiceStatus.OK && results) {
             console.log(`Google API returned ${results.length} places`);
-            resolve(results.map(place => transformGoogleToPointOfInterest(place, lat, lng)));
+            const transformedResults = results.map(place => {
+              const poi = transformGoogleToPointOfInterest(place, lat, lng);
+              
+              // Set the correct category based on the place types
+              if (place.types) {
+                if (place.types.some(type => CATEGORY_MAPPING.food.includes(type))) {
+                  poi.category = 'food';
+                } else if (place.types.some(type => CATEGORY_MAPPING.attractions.includes(type))) {
+                  poi.category = 'attractions';
+                } else if (place.types.some(type => CATEGORY_MAPPING.activities.includes(type))) {
+                  poi.category = 'activities';
+                }
+              }
+              
+              return poi;
+            });
+            
+            // Always sort by distance
+            transformedResults.sort((a, b) => a.distance - b.distance);
+            
+            resolve(transformedResults);
           } else if (status === google.maps.places.PlacesServiceStatus.ZERO_RESULTS) {
             console.log("Google Places API returned zero results");
             resolve([]);

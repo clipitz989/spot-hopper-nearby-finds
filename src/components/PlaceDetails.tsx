@@ -1,4 +1,3 @@
-
 import { Heart, MapPin, Phone, Globe, Star } from "lucide-react";
 import { PointOfInterest } from "../types";
 import { useFavorites } from "../contexts/FavoritesContext";
@@ -74,9 +73,7 @@ export function PlaceDetails({ place, isOpen, onClose }: PlaceDetailsProps) {
                 <p className="text-muted-foreground">{place.location.address}</p>
                 {place.distance !== undefined && (
                   <p className="text-sm text-muted-foreground">
-                    {(place.distance < 1000) 
-                      ? `${place.distance} m away` 
-                      : `${(place.distance / 1000).toFixed(1)} km away`}
+                    {place.distance} miles away
                   </p>
                 )}
               </div>
