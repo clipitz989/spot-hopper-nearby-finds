@@ -1,8 +1,7 @@
-
 export interface PointOfInterest {
   id: string;
   name: string;
-  category: 'food' | 'attractions' | 'activities';
+  category: 'food' | 'bars' | 'attractions' | 'activities';
   subcategory?: string;
   description: string;
   rating: number;

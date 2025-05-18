@@ -124,7 +124,7 @@ export function FilterBar({ filters, onFilterChange }: FilterBarProps) {
                 <div className="space-y-2">
                   <Label>Categories</Label>
                   <div className="flex flex-wrap gap-2 mt-2">
-                    {['food', 'attractions', 'activities'].map(category => (
+                    {['food', 'bars', 'attractions', 'activities'].map(category => (
                       <Button
                         key={category}
                         variant={localFilters.selectedCategories.includes(category) ? "default" : "outline"}
@@ -145,7 +145,7 @@ export function FilterBar({ filters, onFilterChange }: FilterBarProps) {
           </Sheet>
           
           <div className="flex gap-2">
-            {['food', 'attractions', 'activities'].map(category => (
+            {['food', 'bars', 'attractions', 'activities'].map(category => (
               <Button
                 key={category}
                 variant={filters.selectedCategories.includes(category) ? "default" : "outline"}

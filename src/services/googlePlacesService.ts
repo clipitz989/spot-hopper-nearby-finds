@@ -62,17 +62,30 @@ const CATEGORY_MAPPING = {
   food: [
     "restaurant",
     "cafe",
-    "bar",
     "bakery",
     "meal_takeaway",
     "meal_delivery",
     "food",
-    "night_club",
     "supermarket",
     "grocery_or_supermarket",
     "deli",
-    "convenience_store",
-    "liquor_store"
+    "convenience_store"
+  ],
+  bars: [
+    "bar",
+    "night_club",
+    "liquor_store",
+    "brewery",
+    "wine_bar",
+    "rooftop_bar",
+    "pub",
+    "cocktail_bar",
+    "sports_bar",
+    "irish_pub",
+    "dive_bar",
+    "tavern",
+    "restaurant",  // Include restaurant to catch hybrid places
+    "establishment"
   ],
   attractions: [
     "tourist_attraction",
@@ -203,6 +216,43 @@ const transformGoogleToPointOfInterest = (place: google.maps.places.PlaceResult,
   return poi;
 };
 
+// Helper function to check if a place is likely a bar based on its name and types
+const isLikelyBar = (place: google.maps.places.PlaceResult): boolean => {
+  const barKeywords = [
+    'bar', 'pub', 'tavern', 'lounge', 'beer', 'wine', 'spirits',
+    'cocktail', 'brewery', 'ale', 'saloon', "kelly's", 'kellys',
+    'tap', 'grill', 'sports', 'cantina', 'inn', 'alehouse',
+    'gastropub', 'public house', 'roadhouse', 'oyster', 'seafood',
+    'steakhouse', 'grill', 'kitchen', 'bistro', 'rye', 'port'
+  ];
+  
+  // Check name for bar-related keywords
+  const nameLower = place.name?.toLowerCase() || '';
+  if (barKeywords.some(keyword => nameLower.includes(keyword))) {
+    return true;
+  }
+
+  // Check if it has bar-related types
+  if (place.types?.some(type => 
+    ['bar', 'night_club', 'brewery', 'pub', 'restaurant'].includes(type)
+  )) {
+    return true;
+  }
+
+  // Check if it serves alcohol (if this information is available)
+  const servesAlcohol = place.types?.includes('establishment') && 
+    (place.types?.includes('restaurant') || place.types?.includes('bar'));
+
+  // Check business status and rating as additional signals
+  const isPopularEvening = place.rating && place.rating >= 4.0 && 
+    place.types?.includes('restaurant') &&
+    place.opening_hours?.periods?.some(period => 
+      period.close && parseInt(period.close.time) >= 2200
+    );
+
+  return servesAlcohol || isPopularEvening;
+};
+
 export const fetchPlaces = async (params: GoogleSearchParams): Promise<PointOfInterest[]> => {
   try {
     console.log("Initializing Google Maps API for fetchPlaces");
@@ -215,9 +265,61 @@ export const fetchPlaces = async (params: GoogleSearchParams): Promise<PointOfIn
         
         const [lat, lng] = params.location.split(',').map(Number);
         
+        // For bars category, we'll make multiple searches to ensure comprehensive results
+        if (params.type === 'bar') {
+          const searches = [
+            { type: 'bar', keyword: 'bar pub tavern' },
+            { type: 'restaurant', keyword: 'bar grill pub tavern' },
+            { type: 'night_club', keyword: undefined },
+            { type: 'restaurant', keyword: 'sports bar lounge' }
+          ];
+          
+          Promise.all(searches.map(search => 
+            new Promise<google.maps.places.PlaceResult[]>((resolveSearch) => {
+              service.nearbySearch({
+                location: new google.maps.LatLng(lat, lng),
+                radius: 5000,
+                type: search.type,
+                keyword: search.keyword,
+                openNow: params.opennow,
+                minPriceLevel: params.minprice,
+                maxPriceLevel: params.maxprice
+              }, (results, status) => {
+                if (status === google.maps.places.PlacesServiceStatus.OK && results) {
+                  resolveSearch(results);
+                } else {
+                  resolveSearch([]);
+                }
+              });
+            })
+          )).then(searchResults => {
+            // Combine and deduplicate results
+            const seenPlaceIds = new Set<string>();
+            const allResults = searchResults.flat().filter(place => {
+              if (!place.place_id || seenPlaceIds.has(place.place_id)) return false;
+              seenPlaceIds.add(place.place_id);
+              return true;
+            });
+            
+            const transformedResults = allResults.map(place => {
+              const poi = transformGoogleToPointOfInterest(place, lat, lng);
+              if (isLikelyBar(place)) {
+                poi.category = 'bars';
+              }
+              return poi;
+            }).filter(poi => poi.category === 'bars');
+            
+            transformedResults.sort((a, b) => a.distance - b.distance);
+            resolve(transformedResults);
+          });
+          
+          return;
+        }
+        
+        // Regular search for other categories
         const request = {
           location: new google.maps.LatLng(lat, lng),
-          radius: 5000, // Set a consistent radius
+          radius: 5000,
           type: params.type,
           keyword: params.type === 'restaurant' ? 'restaurant food' : 
                   params.type === 'tourist_attraction' ? 'attraction tourism' :
@@ -228,19 +330,15 @@ export const fetchPlaces = async (params: GoogleSearchParams): Promise<PointOfIn
           maxPriceLevel: params.maxprice
         };
 
-        console.log("Sending request to Google Places API:", request);
-        
         service.nearbySearch(request, (results, status) => {
-          console.log("Google Places API response status:", status);
-          
           if (status === google.maps.places.PlacesServiceStatus.OK && results) {
-            console.log(`Google API returned ${results.length} places`);
             const transformedResults = results.map(place => {
               const poi = transformGoogleToPointOfInterest(place, lat, lng);
               
-              // Set the correct category based on the place types
               if (place.types) {
-                if (place.types.some(type => CATEGORY_MAPPING.food.includes(type))) {
+                if (isLikelyBar(place)) {
+                  poi.category = 'bars';
+                } else if (place.types.some(type => CATEGORY_MAPPING.food.includes(type))) {
                   poi.category = 'food';
                 } else if (place.types.some(type => CATEGORY_MAPPING.attractions.includes(type))) {
                   poi.category = 'attractions';
@@ -252,15 +350,11 @@ export const fetchPlaces = async (params: GoogleSearchParams): Promise<PointOfIn
               return poi;
             });
             
-            // Always sort by distance
             transformedResults.sort((a, b) => a.distance - b.distance);
-            
             resolve(transformedResults);
           } else if (status === google.maps.places.PlacesServiceStatus.ZERO_RESULTS) {
-            console.log("Google Places API returned zero results");
             resolve([]);
           } else {
-            console.error(`Google Places API error: ${status}`);
             reject(new Error(`Google Places API error: ${status}`));
           }
         });
