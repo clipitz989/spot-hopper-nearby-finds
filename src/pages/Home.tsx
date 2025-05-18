@@ -8,11 +8,15 @@ import { usePlacesQuery } from "../hooks/usePlacesQuery";
 import { toast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LocationSearch } from "../components/LocationSearch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+
+type SortOption = 'relevance' | 'rating' | 'distance';
 
 export default function Home() {
   const { position, loading: locationLoading, locationChangeCounter } = useLocation();
   const [selectedPlace, setSelectedPlace] = useState<PointOfInterest | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const [sortBy, setSortBy] = useState<SortOption>('relevance');
   const [filters, setFilters] = useState<Filter>({
     openNow: false,
     minRating: 0,
@@ -86,6 +90,19 @@ export default function Home() {
     }
   }, [position]);
 
+  const sortPlaces = (placesToSort: PointOfInterest[]) => {
+    const filtered = placesToSort.filter(place => place.rating >= filters.minRating);
+    
+    switch (sortBy) {
+      case 'rating':
+        return [...filtered].sort((a, b) => (b.rating || 0) - (a.rating || 0));
+      case 'distance':
+        return [...filtered].sort((a, b) => (a.distance || 0) - (b.distance || 0));
+      default:
+        return filtered; // Default relevance sorting (as returned by the API)
+    }
+  };
+
   const renderContent = () => {
     // Show loading state when detecting location or loading places
     if (locationLoading || placesLoading) {
@@ -107,29 +124,41 @@ export default function Home() {
 
     // Show places
     return (
-      <div className="grid gap-4 p-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-        {places.length > 0 ? (
-          places
-            .filter(place => place.rating >= filters.minRating)
-            .map(place => (
-            <PlaceCard
-              key={place.id}
-              place={place}
-              onClick={() => handleOpenDetails(place)}
-            />
-          ))
-        ) : (
-          <div className="col-span-full text-center py-8">
-            <p>No places match your current filters.</p>
-            <button 
-              className="mt-4 text-primary underline"
-              onClick={() => refetch()}
-            >
-              Refresh
-            </button>
-          </div>
-        )}
-      </div>
+      <>
+        <div className="px-4 py-2">
+          <Select value={sortBy} onValueChange={(value: SortOption) => setSortBy(value)}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Sort by..." />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="relevance">Most Relevant</SelectItem>
+              <SelectItem value="rating">Top Rated</SelectItem>
+              <SelectItem value="distance">Closest First</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="grid gap-4 p-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+          {places.length > 0 ? (
+            sortPlaces(places).map(place => (
+              <PlaceCard
+                key={place.id}
+                place={place}
+                onClick={() => handleOpenDetails(place)}
+              />
+            ))
+          ) : (
+            <div className="col-span-full text-center py-8">
+              <p>No places match your current filters.</p>
+              <button 
+                className="mt-4 text-primary underline"
+                onClick={() => refetch()}
+              >
+                Refresh
+              </button>
+            </div>
+          )}
+        </div>
+      </>
     );
   };
 
