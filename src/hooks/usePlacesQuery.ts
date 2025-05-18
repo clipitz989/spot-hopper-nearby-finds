@@ -1,8 +1,9 @@
+
 import { useQuery } from "@tanstack/react-query";
 import { fetchPlaces, GoogleSearchParams, mapCategoriesToGoogle } from "../services/googlePlacesService";
 import { PointOfInterest, Filter } from "../types";
 import { useLocation } from "./useLocation";
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 
 interface UsePlacesQueryOptions {
   enabled?: boolean;
@@ -10,11 +11,11 @@ interface UsePlacesQueryOptions {
 }
 
 export function usePlacesQuery(options: UsePlacesQueryOptions = {}) {
-  const { position, loading: locationLoading, customLocation, locationChangeCounter } = useLocation();
+  const { position, loading: locationLoading, locationChangeCounter } = useLocation();
   const { enabled = true, filters } = options;
 
   const query = useQuery({
-    queryKey: ['places', position, filters],
+    queryKey: ['places', position, filters, locationChangeCounter], // Include locationChangeCounter in query key
     queryFn: async () => {
       if (!position) {
         return [];
@@ -41,7 +42,7 @@ export function usePlacesQuery(options: UsePlacesQueryOptions = {}) {
         params.maxprice = filters.priceRange[1] - 1;
       }
       
-      console.log("Fetching places with params:", params);
+      console.log("Fetching places with params:", params, "locationChangeCounter:", locationChangeCounter);
       
       try {
         const places = await fetchPlaces(params);
@@ -55,19 +56,21 @@ export function usePlacesQuery(options: UsePlacesQueryOptions = {}) {
       }
     },
     enabled: enabled && !locationLoading && !!position,
-    staleTime: Infinity, // Keep the data until explicitly invalidated
-    refetchOnMount: false,
+    staleTime: 0, // Reduced from Infinity to ensure we get fresh data
+    refetchOnMount: true, // Enable refetch on mount
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
   });
 
-  // Force refetch when location counter changes
+  // Log when query actually runs
   useEffect(() => {
-    if (locationChangeCounter > 0 && query.fetchStatus !== 'fetching' && position) {
-      console.log(`Location change detected (counter: ${locationChangeCounter}), refetching places...`);
-      query.refetch();
+    if (query.isFetching) {
+      console.log("Query is fetching with position:", position, "counter:", locationChangeCounter);
     }
-  }, [locationChangeCounter, position, query]);
+    if (query.data) {
+      console.log(`Query returned ${query.data.length} places`);
+    }
+  }, [query.isFetching, query.data, position, locationChangeCounter]);
 
   return query;
 }

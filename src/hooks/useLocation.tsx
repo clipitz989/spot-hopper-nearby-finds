@@ -41,8 +41,11 @@ export function useLocation() {
         setPosition(newPosition);
         setLoading(false);
         
-        // Increment the counter AFTER state is updated
-        setLocationChangeCounter(prev => prev + 1);
+        // Use a callback to ensure we get the latest counter value
+        setLocationChangeCounter(prevCounter => {
+          console.log(`Incrementing location counter from ${prevCounter} to ${prevCounter + 1}`);
+          return prevCounter + 1;
+        });
         
         toast({
           title: "Location Updated",
@@ -81,13 +84,14 @@ export function useLocation() {
         };
         
         console.log("Found location for search:", query, newPosition);
-        
-        // Update position first
         setPosition(newPosition);
         setLoading(false);
         
-        // Then increment the counter separately
-        setLocationChangeCounter(prev => prev + 1);
+        // Update the counter after position is set
+        setLocationChangeCounter(prevCounter => {
+          console.log(`Incrementing location counter from ${prevCounter} to ${prevCounter + 1} for search`);
+          return prevCounter + 1;
+        });
         
         toast({
           title: "Location Updated",

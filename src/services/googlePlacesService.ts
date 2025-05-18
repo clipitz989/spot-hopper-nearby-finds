@@ -10,6 +10,9 @@ declare global {
   }
 }
 
+// Create a cache to store place data by ID to maintain consistency
+const placesCache = new Map<string, PointOfInterest>();
+
 // Load Google Maps JavaScript API
 const loadGoogleMapsApi = () => {
   if (typeof window !== 'undefined' && !window.google) {
@@ -55,7 +58,11 @@ export const mapCategoriesToGoogle = (categories: string[]): string[] => {
 
 const getPlaceImage = (photos: google.maps.places.PlacePhoto[] | undefined): string => {
   if (photos && photos.length > 0) {
-    return photos[0].getUrl();
+    try {
+      return photos[0].getUrl();
+    } catch (error) {
+      console.error("Error getting place photo:", error);
+    }
   }
 
   // Fallback images
@@ -63,8 +70,15 @@ const getPlaceImage = (photos: google.maps.places.PlacePhoto[] | undefined): str
 };
 
 const transformGoogleToPointOfInterest = (place: google.maps.places.PlaceResult): PointOfInterest => {
-  return {
-    id: place.place_id || '',
+  // Check if we already have this place in the cache
+  const placeId = place.place_id || '';
+  if (placesCache.has(placeId)) {
+    return placesCache.get(placeId)!;
+  }
+  
+  // Otherwise create a new place object
+  const poi: PointOfInterest = {
+    id: placeId,
     name: place.name || '',
     category: 'food', // We'll determine this based on types
     subcategory: place.types?.[0]?.replace(/_/g, ' '),
@@ -82,10 +96,16 @@ const transformGoogleToPointOfInterest = (place: google.maps.places.PlaceResult)
     tags: place.types?.map(t => t.replace(/_/g, ' ')) || [],
     contact: {}
   };
+  
+  // Store in cache for future use
+  placesCache.set(placeId, poi);
+  
+  return poi;
 };
 
 export const fetchPlaces = async (params: GoogleSearchParams): Promise<PointOfInterest[]> => {
   await loadGoogleMapsApi();
+  console.log("Fetching places for location:", params.location);
   
   return new Promise((resolve, reject) => {
     const service = new google.maps.places.PlacesService(document.createElement('div'));
@@ -103,10 +123,12 @@ export const fetchPlaces = async (params: GoogleSearchParams): Promise<PointOfIn
 
     service.nearbySearch(request, (results, status) => {
       if (status === google.maps.places.PlacesServiceStatus.OK && results) {
+        console.log(`Google API returned ${results.length} places`);
         resolve(results.map(transformGoogleToPointOfInterest));
       } else {
+        console.error(`Google Places API error: ${status}`);
         reject(new Error(`Google Places API error: ${status}`));
       }
     });
   });
-}; 
+};
