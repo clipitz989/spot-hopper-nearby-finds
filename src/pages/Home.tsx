@@ -179,7 +179,7 @@ export default function Home() {
   return (
     <div className="pb-16 min-h-screen bg-background">
       <header className="sticky top-0 z-20 bg-background border-b px-4 py-3">
-        <h1 className="text-2xl font-bold text-center">Nearby Finds!</h1>
+        <h1 className="text-2xl font-bold text-center">Nearby Finds</h1>
       </header>
       
       <div className="px-4 pt-4 pb-2">
