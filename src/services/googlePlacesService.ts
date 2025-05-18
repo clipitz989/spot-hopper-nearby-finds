@@ -98,7 +98,7 @@ const getPlaceImage = (photos: google.maps.places.PlacePhoto[] | undefined): str
   return 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&auto=format&fit=crop';
 };
 
-const transformGoogleToPointOfInterest = (place: google.maps.places.PlaceResult): PointOfInterest => {
+const transformGoogleToPointOfInterest = (place: google.maps.places.PlaceResult, userLat: number, userLng: number): PointOfInterest => {
   // Check if we already have this place in the cache
   const placeId = place.place_id || '';
   if (placesCache.has(placeId)) {
@@ -107,6 +107,22 @@ const transformGoogleToPointOfInterest = (place: google.maps.places.PlaceResult)
   }
   
   console.log(`Creating new place object for: ${place.name} (${placeId})`);
+  
+  const placeLat = place.geometry?.location?.lat() || 0;
+  const placeLng = place.geometry?.location?.lng() || 0;
+  
+  // Calculate distance in meters using the Haversine formula
+  const R = 6371e3; // Earth's radius in meters
+  const φ1 = userLat * Math.PI/180;
+  const φ2 = placeLat * Math.PI/180;
+  const Δφ = (placeLat - userLat) * Math.PI/180;
+  const Δλ = (placeLng - userLng) * Math.PI/180;
+
+  const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+          Math.cos(φ1) * Math.cos(φ2) *
+          Math.sin(Δλ/2) * Math.sin(Δλ/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  const distance = Math.round(R * c); // Distance in meters
   
   // Otherwise create a new place object
   const poi: PointOfInterest = {
@@ -119,12 +135,13 @@ const transformGoogleToPointOfInterest = (place: google.maps.places.PlaceResult)
     reviews: place.user_ratings_total || 0,
     image: getPlaceImage(place.photos),
     location: {
-      latitude: place.geometry?.location?.lat() || 0,
-      longitude: place.geometry?.location?.lng() || 0,
+      latitude: placeLat,
+      longitude: placeLng,
       address: place.vicinity || ''
     },
     priceRange: place.price_level as 1 | 2 | 3 | 4,
     openNow: place.opening_hours?.isOpen(),
+    distance: distance,
     tags: place.types?.map(t => t.replace(/_/g, ' ')) || [],
     contact: {}
   };
@@ -163,7 +180,7 @@ export const fetchPlaces = async (params: GoogleSearchParams): Promise<PointOfIn
           
           if (status === google.maps.places.PlacesServiceStatus.OK && results) {
             console.log(`Google API returned ${results.length} places`);
-            resolve(results.map(transformGoogleToPointOfInterest));
+            resolve(results.map(place => transformGoogleToPointOfInterest(place, lat, lng)));
           } else if (status === google.maps.places.PlacesServiceStatus.ZERO_RESULTS) {
             console.log("Google Places API returned zero results");
             resolve([]);

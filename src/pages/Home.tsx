@@ -83,25 +83,37 @@ export default function Home() {
     setIsDetailsOpen(false);
   };
 
+  const sortPlaces = (placesToSort: PointOfInterest[]) => {
+    // First filter by minimum rating
+    const filtered = placesToSort.filter(place => place.rating >= filters.minRating);
+    
+    // Then sort based on selected option
+    const sorted = [...filtered];
+    switch (sortBy) {
+      case 'rating':
+        sorted.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+        break;
+      case 'distance':
+        sorted.sort((a, b) => {
+          const distA = a.distance || Infinity;
+          const distB = b.distance || Infinity;
+          return distA - distB;
+        });
+        break;
+      default: // 'relevance'
+        // Keep original order from API
+        break;
+    }
+    
+    return sorted;
+  };
+
   // Log when position changes to help with debugging
   useEffect(() => {
     if (position) {
       console.log("Position updated in Home:", position);
     }
   }, [position]);
-
-  const sortPlaces = (placesToSort: PointOfInterest[]) => {
-    const filtered = placesToSort.filter(place => place.rating >= filters.minRating);
-    
-    switch (sortBy) {
-      case 'rating':
-        return [...filtered].sort((a, b) => (b.rating || 0) - (a.rating || 0));
-      case 'distance':
-        return [...filtered].sort((a, b) => (a.distance || 0) - (b.distance || 0));
-      default:
-        return filtered; // Default relevance sorting (as returned by the API)
-    }
-  };
 
   const renderContent = () => {
     // Show loading state when detecting location or loading places
@@ -123,6 +135,8 @@ export default function Home() {
     }
 
     // Show places
+    const sortedPlaces = sortPlaces(places);
+    
     return (
       <>
         <div className="px-4 py-2">
@@ -138,8 +152,8 @@ export default function Home() {
           </Select>
         </div>
         <div className="grid gap-4 p-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-          {places.length > 0 ? (
-            sortPlaces(places).map(place => (
+          {sortedPlaces.length > 0 ? (
+            sortedPlaces.map(place => (
               <PlaceCard
                 key={place.id}
                 place={place}
