@@ -69,7 +69,36 @@ const CATEGORY_MAPPING = {
     "supermarket",
     "grocery_or_supermarket",
     "deli",
-    "convenience_store"
+    "convenience_store",
+    "ice_cream_shop",
+    "pizza_restaurant",
+    "fast_food_restaurant",
+    "buffet_restaurant",
+    "sushi_restaurant",
+    "chinese_restaurant",
+    "thai_restaurant",
+    "indian_restaurant",
+    "mexican_restaurant",
+    "italian_restaurant",
+    "japanese_restaurant",
+    "vietnamese_restaurant",
+    "mediterranean_restaurant",
+    "steakhouse",
+    "seafood_restaurant",
+    "barbecue_restaurant",
+    "vegetarian_restaurant",
+    "vegan_restaurant",
+    "food_court",
+    "coffee_shop",
+    "tea_house",
+    "juice_bar",
+    "dessert_shop",
+    "food_truck",
+    "sandwich_shop",
+    "bagel_shop",
+    "donut_shop",
+    "health_food_store",
+    "farmers_market"
   ],
   bars: [
     "bar",
@@ -85,7 +114,23 @@ const CATEGORY_MAPPING = {
     "dive_bar",
     "tavern",
     "restaurant",  // Include restaurant to catch hybrid places
-    "establishment"
+    "establishment",
+    "distillery",
+    "beer_garden",
+    "karaoke_bar",
+    "lounge",
+    "hookah_bar",
+    "jazz_club",
+    "comedy_club",
+    "dance_club",
+    "wine_cellar",
+    "whiskey_bar",
+    "tiki_bar",
+    "gastropub",
+    "microbrewery",
+    "taproom",
+    "beer_hall",
+    "speakeasy"
   ],
   attractions: [
     "tourist_attraction",
@@ -101,7 +146,42 @@ const CATEGORY_MAPPING = {
     "movie_theater",
     "zoo",
     "stadium",
-    "point_of_interest"
+    "point_of_interest",
+    "historical_landmark",
+    "monument",
+    "botanical_garden",
+    "national_park",
+    "state_park",
+    "beach",
+    "scenic_point",
+    "observation_deck",
+    "performing_arts_theater",
+    "concert_hall",
+    "cultural_center",
+    "science_museum",
+    "history_museum",
+    "art_museum",
+    "children_museum",
+    "planetarium",
+    "sculpture_garden",
+    "nature_preserve",
+    "waterfall",
+    "lake",
+    "river",
+    "garden",
+    "historic_site",
+    "historic_building",
+    "castle",
+    "palace",
+    "lighthouse",
+    "pier",
+    "boardwalk",
+    "marina",
+    "temple",
+    "cathedral",
+    "mosque",
+    "synagogue",
+    "shrine"
   ],
   activities: [
     "shopping_mall",
@@ -118,7 +198,43 @@ const CATEGORY_MAPPING = {
     "electronics_store",
     "fitness_center",
     "hair_care",
-    "beauty_salon"
+    "beauty_salon",
+    "sports_complex",
+    "recreation_center",
+    "yoga_studio",
+    "pilates_studio",
+    "climbing_gym",
+    "swimming_pool",
+    "tennis_court",
+    "golf_course",
+    "mini_golf",
+    "water_park",
+    "trampoline_park",
+    "escape_room",
+    "arcade",
+    "laser_tag",
+    "paintball_field",
+    "go_kart_track",
+    "ice_skating_rink",
+    "roller_skating_rink",
+    "skate_park",
+    "bike_rental",
+    "kayak_rental",
+    "surf_shop",
+    "cooking_school",
+    "art_studio",
+    "dance_studio",
+    "music_venue",
+    "bookstore",
+    "craft_store",
+    "hobby_shop",
+    "antique_store",
+    "flea_market",
+    "outlet_mall",
+    "farmers_market",
+    "pet_store",
+    "toy_store",
+    "sporting_goods_store"
   ]
 };
 
@@ -262,101 +378,211 @@ export const fetchPlaces = async (params: GoogleSearchParams): Promise<PointOfIn
     return new Promise((resolve, reject) => {
       try {
         const service = new google.maps.places.PlacesService(document.createElement('div'));
-        
         const [lat, lng] = params.location.split(',').map(Number);
         
-        // For bars category, we'll make multiple searches to ensure comprehensive results
-        if (params.type === 'bar') {
-          const searches = [
-            { type: 'bar', keyword: 'bar pub tavern' },
-            { type: 'restaurant', keyword: 'bar grill pub tavern' },
+        // Define category-specific search configurations
+        const categorySearches = {
+          food: [
+            // Basic searches
+            { type: 'restaurant', keyword: undefined },
+            { type: 'food', keyword: undefined },
+            { type: 'establishment', keyword: 'food' },
+            { type: 'establishment', keyword: 'restaurant' },
+            // Specific establishment types
+            { type: 'cafe', keyword: undefined },
+            { type: 'bakery', keyword: undefined },
+            { type: 'meal_takeaway', keyword: undefined },
+            { type: 'meal_delivery', keyword: undefined },
+            { type: 'supermarket', keyword: undefined },
+            // Cuisine-specific searches
+            { type: 'restaurant', keyword: 'american' },
+            { type: 'restaurant', keyword: 'italian' },
+            { type: 'restaurant', keyword: 'chinese' },
+            { type: 'restaurant', keyword: 'japanese' },
+            { type: 'restaurant', keyword: 'mexican' },
+            { type: 'restaurant', keyword: 'thai' },
+            { type: 'restaurant', keyword: 'indian' },
+            { type: 'restaurant', keyword: 'mediterranean' },
+            { type: 'restaurant', keyword: 'french' },
+            { type: 'restaurant', keyword: 'vietnamese' },
+            { type: 'restaurant', keyword: 'korean' },
+            // Specific food types
+            { type: 'restaurant', keyword: 'pizza' },
+            { type: 'restaurant', keyword: 'burger' },
+            { type: 'restaurant', keyword: 'sushi' },
+            { type: 'restaurant', keyword: 'steak' },
+            { type: 'restaurant', keyword: 'seafood' },
+            { type: 'restaurant', keyword: 'sandwich' },
+            { type: 'restaurant', keyword: 'breakfast' },
+            { type: 'restaurant', keyword: 'brunch' },
+            { type: 'restaurant', keyword: 'lunch' },
+            { type: 'restaurant', keyword: 'dinner' },
+            // Additional food establishments
+            { type: 'establishment', keyword: 'deli' },
+            { type: 'establishment', keyword: 'grill' },
+            { type: 'establishment', keyword: 'diner' },
+            { type: 'establishment', keyword: 'bistro' },
+            { type: 'establishment', keyword: 'cafe' },
+            { type: 'establishment', keyword: 'eatery' },
+            // Catch-all search
+            { type: 'establishment', keyword: 'dining' }
+          ],
+          bars: [
+            // Basic bar searches
+            { type: 'bar', keyword: undefined },
             { type: 'night_club', keyword: undefined },
-            { type: 'restaurant', keyword: 'sports bar lounge' }
-          ];
-          
-          Promise.all(searches.map(search => 
-            new Promise<google.maps.places.PlaceResult[]>((resolveSearch) => {
-              service.nearbySearch({
-                location: new google.maps.LatLng(lat, lng),
-                radius: 5000,
-                type: search.type,
-                keyword: search.keyword,
-                openNow: params.opennow,
-                minPriceLevel: params.minprice,
-                maxPriceLevel: params.maxprice
-              }, (results, status) => {
-                if (status === google.maps.places.PlacesServiceStatus.OK && results) {
-                  resolveSearch(results);
-                } else {
-                  resolveSearch([]);
-                }
-              });
-            })
-          )).then(searchResults => {
-            // Combine and deduplicate results
-            const seenPlaceIds = new Set<string>();
-            const allResults = searchResults.flat().filter(place => {
-              if (!place.place_id || seenPlaceIds.has(place.place_id)) return false;
-              seenPlaceIds.add(place.place_id);
-              return true;
-            });
-            
-            const transformedResults = allResults.map(place => {
-              const poi = transformGoogleToPointOfInterest(place, lat, lng);
-              if (isLikelyBar(place)) {
-                poi.category = 'bars';
-              }
-              return poi;
-            }).filter(poi => poi.category === 'bars');
-            
-            transformedResults.sort((a, b) => a.distance - b.distance);
-            resolve(transformedResults);
-          });
-          
-          return;
-        }
-        
-        // Regular search for other categories
-        const request = {
-          location: new google.maps.LatLng(lat, lng),
-          radius: 5000,
-          type: params.type,
-          keyword: params.type === 'restaurant' ? 'restaurant food' : 
-                  params.type === 'tourist_attraction' ? 'attraction tourism' :
-                  params.type === 'shopping_mall' ? 'shopping activities' :
-                  undefined,
-          openNow: params.opennow,
-          minPriceLevel: params.minprice,
-          maxPriceLevel: params.maxprice
+            { type: 'establishment', keyword: 'bar' },
+            // Specific bar types
+            { type: 'bar', keyword: 'pub' },
+            { type: 'bar', keyword: 'tavern' },
+            { type: 'bar', keyword: 'brewery' },
+            { type: 'bar', keyword: 'wine bar' },
+            { type: 'restaurant', keyword: 'bar grill' },
+            { type: 'restaurant', keyword: 'sports bar' },
+            { type: 'establishment', keyword: 'lounge' },
+            // Additional bar establishments
+            { type: 'establishment', keyword: 'brewery' },
+            { type: 'establishment', keyword: 'pub' },
+            { type: 'establishment', keyword: 'cocktails' }
+          ],
+          attractions: [
+            // Basic attraction searches
+            { type: 'tourist_attraction', keyword: undefined },
+            { type: 'point_of_interest', keyword: undefined },
+            { type: 'establishment', keyword: 'attraction' },
+            // Natural attractions
+            { type: 'park', keyword: undefined },
+            { type: 'natural_feature', keyword: undefined },
+            // Cultural attractions
+            { type: 'museum', keyword: undefined },
+            { type: 'art_gallery', keyword: undefined },
+            { type: 'church', keyword: undefined },
+            { type: 'place_of_worship', keyword: undefined },
+            // Entertainment
+            { type: 'amusement_park', keyword: undefined },
+            { type: 'aquarium', keyword: undefined },
+            { type: 'zoo', keyword: undefined },
+            { type: 'stadium', keyword: undefined },
+            // Historical
+            { type: 'establishment', keyword: 'historical' },
+            { type: 'establishment', keyword: 'landmark' },
+            // Catch-all
+            { type: 'establishment', keyword: 'tourist' }
+          ],
+          activities: [
+            // Shopping
+            { type: 'shopping_mall', keyword: undefined },
+            { type: 'store', keyword: undefined },
+            { type: 'clothing_store', keyword: undefined },
+            { type: 'department_store', keyword: undefined },
+            // Recreation
+            { type: 'gym', keyword: undefined },
+            { type: 'fitness', keyword: undefined },
+            { type: 'spa', keyword: undefined },
+            { type: 'bowling_alley', keyword: undefined },
+            { type: 'movie_theater', keyword: undefined },
+            // Sports and Recreation
+            { type: 'establishment', keyword: 'fitness' },
+            { type: 'establishment', keyword: 'recreation' },
+            { type: 'establishment', keyword: 'sports' },
+            // Entertainment
+            { type: 'establishment', keyword: 'entertainment' },
+            { type: 'establishment', keyword: 'activities' },
+            // Catch-all
+            { type: 'establishment', keyword: 'fun' }
+          ]
         };
 
-        service.nearbySearch(request, (results, status) => {
-          if (status === google.maps.places.PlacesServiceStatus.OK && results) {
-            const transformedResults = results.map(place => {
-              const poi = transformGoogleToPointOfInterest(place, lat, lng);
-              
-              if (place.types) {
-                if (isLikelyBar(place)) {
-                  poi.category = 'bars';
-                } else if (place.types.some(type => CATEGORY_MAPPING.food.includes(type))) {
-                  poi.category = 'food';
-                } else if (place.types.some(type => CATEGORY_MAPPING.attractions.includes(type))) {
-                  poi.category = 'attractions';
-                } else if (place.types.some(type => CATEGORY_MAPPING.activities.includes(type))) {
-                  poi.category = 'activities';
-                }
-              }
-              
-              return poi;
-            });
-            
-            transformedResults.sort((a, b) => a.distance - b.distance);
-            resolve(transformedResults);
-          } else if (status === google.maps.places.PlacesServiceStatus.ZERO_RESULTS) {
-            resolve([]);
-          } else {
-            reject(new Error(`Google Places API error: ${status}`));
+        // Determine which searches to perform based on the selected type
+        let searchConfigs = [];
+        if (params.type) {
+          // If a specific type is selected, find the category it belongs to
+          for (const [category, types] of Object.entries(CATEGORY_MAPPING)) {
+            if (types.includes(params.type)) {
+              searchConfigs = categorySearches[category as keyof typeof categorySearches];
+              break;
+            }
           }
+          // If no category found, use the specific type
+          if (searchConfigs.length === 0) {
+            searchConfigs = [{ type: params.type, keyword: params.keyword }];
+          }
+        } else {
+          // If no type specified, search all categories
+          searchConfigs = Object.values(categorySearches).flat();
+        }
+        
+        console.log("Starting searches with configs:", searchConfigs);
+        
+        // Perform all searches in parallel
+        Promise.all(searchConfigs.map(search => 
+          new Promise<google.maps.places.PlaceResult[]>((resolveSearch) => {
+            const searchRequest: google.maps.places.PlaceSearchRequest = {
+              location: new google.maps.LatLng(lat, lng),
+              radius: params.radius || 15000, // Increased to 15km radius for maximum coverage
+              type: search.type,
+              keyword: search.keyword,
+              openNow: params.opennow,
+              minPriceLevel: params.minprice,
+              maxPriceLevel: params.maxprice
+            };
+
+            console.log(`Executing search with params:`, searchRequest);
+
+            service.nearbySearch(searchRequest, (results, status) => {
+              if (status === google.maps.places.PlacesServiceStatus.OK && results) {
+                console.log(`Search successful for type: ${search.type}, found ${results.length} results`);
+                resolveSearch(results);
+              } else {
+                console.log(`Search failed for type: ${search.type}, keyword: ${search.keyword}, status: ${status}`);
+                resolveSearch([]);
+              }
+            });
+          })
+        )).then(searchResults => {
+          // Combine and deduplicate results
+          const seenPlaceIds = new Set<string>();
+          const allResults = searchResults.flat().filter(place => {
+            if (!place.place_id || seenPlaceIds.has(place.place_id)) return false;
+            if (!place.geometry || !place.geometry.location) return false; // Filter out places without valid locations
+            seenPlaceIds.add(place.place_id);
+            return true;
+          });
+          
+          console.log(`Total results before transformation: ${allResults.length}`);
+          
+          const transformedResults = allResults.map(place => {
+            const poi = transformGoogleToPointOfInterest(place, lat, lng);
+            
+            // Determine the category based on place types and other signals
+            if (place.types) {
+              if (isLikelyBar(place)) {
+                poi.category = 'bars';
+              } else if (place.types.some(type => CATEGORY_MAPPING.food.includes(type)) || 
+                        (place.name && /restaurant|cafe|food|pizza|sushi|thai|chinese|mexican|italian/i.test(place.name))) {
+                poi.category = 'food';
+              } else if (place.types.some(type => CATEGORY_MAPPING.attractions.includes(type))) {
+                poi.category = 'attractions';
+              } else if (place.types.some(type => CATEGORY_MAPPING.activities.includes(type))) {
+                poi.category = 'activities';
+              }
+            }
+            
+            return poi;
+          });
+          
+          // Sort results by distance
+          transformedResults.sort((a, b) => a.distance - b.distance);
+          
+          console.log(`Found ${transformedResults.length} total places after deduplication`);
+          console.log(`Categories breakdown:`, 
+            transformedResults.reduce((acc, curr) => {
+              acc[curr.category] = (acc[curr.category] || 0) + 1;
+              return acc;
+            }, {} as Record<string, number>)
+          );
+          
+          resolve(transformedResults);
         });
       } catch (error) {
         console.error("Error in Places API request:", error);
