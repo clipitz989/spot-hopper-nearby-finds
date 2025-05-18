@@ -13,19 +13,48 @@ declare global {
 // Create a cache to store place data by ID to maintain consistency
 const placesCache = new Map<string, PointOfInterest>();
 
+// Function to clear cache when location changes
+export const clearPlacesCache = () => {
+  console.log("Clearing places cache");
+  placesCache.clear();
+};
+
 // Load Google Maps JavaScript API
 const loadGoogleMapsApi = () => {
-  if (typeof window !== 'undefined' && !window.google) {
-    const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_API_KEY}&libraries=places`;
-    script.async = true;
-    script.defer = true;
-    document.head.appendChild(script);
-    return new Promise((resolve) => {
-      script.onload = () => resolve(window.google);
-    });
-  }
-  return Promise.resolve(window.google);
+  return new Promise<typeof google>((resolve, reject) => {
+    if (typeof window !== 'undefined') {
+      if (window.google) {
+        console.log("Google Maps API already loaded");
+        resolve(window.google);
+        return;
+      }
+      
+      // Check if the script already exists
+      const existingScript = document.querySelector('script[src*="maps.googleapis.com/maps/api/js"]');
+      if (existingScript) {
+        console.log("Google Maps API script already exists, waiting for load");
+        existingScript.addEventListener('load', () => resolve(window.google));
+        return;
+      }
+      
+      console.log("Loading Google Maps API script");
+      const script = document.createElement('script');
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_API_KEY}&libraries=places`;
+      script.async = true;
+      script.defer = true;
+      script.onload = () => {
+        console.log("Google Maps API script loaded successfully");
+        resolve(window.google);
+      };
+      script.onerror = (error) => {
+        console.error("Error loading Google Maps API script:", error);
+        reject(new Error("Failed to load Google Maps API"));
+      };
+      document.head.appendChild(script);
+    } else {
+      reject(new Error("Window is not defined"));
+    }
+  });
 };
 
 // Category mappings to Google place types
@@ -73,8 +102,11 @@ const transformGoogleToPointOfInterest = (place: google.maps.places.PlaceResult)
   // Check if we already have this place in the cache
   const placeId = place.place_id || '';
   if (placesCache.has(placeId)) {
+    console.log(`Using cached data for place: ${placeId}`);
     return placesCache.get(placeId)!;
   }
+  
+  console.log(`Creating new place object for: ${place.name} (${placeId})`);
   
   // Otherwise create a new place object
   const poi: PointOfInterest = {
@@ -104,31 +136,49 @@ const transformGoogleToPointOfInterest = (place: google.maps.places.PlaceResult)
 };
 
 export const fetchPlaces = async (params: GoogleSearchParams): Promise<PointOfInterest[]> => {
-  await loadGoogleMapsApi();
-  console.log("Fetching places for location:", params.location);
-  
-  return new Promise((resolve, reject) => {
-    const service = new google.maps.places.PlacesService(document.createElement('div'));
+  try {
+    console.log("Initializing Google Maps API for fetchPlaces");
+    await loadGoogleMapsApi();
+    console.log("Fetching places for location:", params.location);
     
-    const [lat, lng] = params.location.split(',').map(Number);
-    
-    const request = {
-      location: new google.maps.LatLng(lat, lng),
-      radius: params.radius || 10000,
-      type: params.type,
-      openNow: params.opennow,
-      minPriceLevel: params.minprice,
-      maxPriceLevel: params.maxprice
-    };
+    return new Promise((resolve, reject) => {
+      try {
+        const service = new google.maps.places.PlacesService(document.createElement('div'));
+        
+        const [lat, lng] = params.location.split(',').map(Number);
+        
+        const request = {
+          location: new google.maps.LatLng(lat, lng),
+          radius: params.radius || 10000,
+          type: params.type,
+          openNow: params.opennow,
+          minPriceLevel: params.minprice,
+          maxPriceLevel: params.maxprice
+        };
 
-    service.nearbySearch(request, (results, status) => {
-      if (status === google.maps.places.PlacesServiceStatus.OK && results) {
-        console.log(`Google API returned ${results.length} places`);
-        resolve(results.map(transformGoogleToPointOfInterest));
-      } else {
-        console.error(`Google Places API error: ${status}`);
-        reject(new Error(`Google Places API error: ${status}`));
+        console.log("Sending request to Google Places API:", request);
+        
+        service.nearbySearch(request, (results, status) => {
+          console.log("Google Places API response status:", status);
+          
+          if (status === google.maps.places.PlacesServiceStatus.OK && results) {
+            console.log(`Google API returned ${results.length} places`);
+            resolve(results.map(transformGoogleToPointOfInterest));
+          } else if (status === google.maps.places.PlacesServiceStatus.ZERO_RESULTS) {
+            console.log("Google Places API returned zero results");
+            resolve([]);
+          } else {
+            console.error(`Google Places API error: ${status}`);
+            reject(new Error(`Google Places API error: ${status}`));
+          }
+        });
+      } catch (error) {
+        console.error("Error in Places API request:", error);
+        reject(error);
       }
     });
-  });
+  } catch (error) {
+    console.error("Failed to initialize Google Maps API:", error);
+    throw error;
+  }
 };

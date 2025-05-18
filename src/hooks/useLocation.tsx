@@ -14,10 +14,21 @@ export function useLocation() {
   const [customLocation, setCustomLocation] = useState<string | null>(null);
   const [locationChangeCounter, setLocationChangeCounter] = useState(0);
 
+  // Helper function to safely increment counter
+  const incrementLocationCounter = useCallback(() => {
+    setLocationChangeCounter(prevCounter => {
+      const newCounter = prevCounter + 1;
+      console.log(`Incrementing location counter from ${prevCounter} to ${newCounter}`);
+      return newCounter;
+    });
+  }, []);
+
   // Get current location using browser geolocation
   const getCurrentLocation = useCallback(() => {
     setLoading(true);
     setCustomLocation(null);
+    
+    console.log("Getting current location...");
     
     if (!navigator.geolocation) {
       setError('Geolocation is not supported by your browser');
@@ -37,15 +48,14 @@ export function useLocation() {
           longitude: position.coords.longitude
         };
         
-        console.log("Setting current position:", newPosition);
+        console.log("Current position obtained:", newPosition);
+        
+        // Update position state first
         setPosition(newPosition);
         setLoading(false);
         
-        // Use a callback to ensure we get the latest counter value
-        setLocationChangeCounter(prevCounter => {
-          console.log(`Incrementing location counter from ${prevCounter} to ${prevCounter + 1}`);
-          return prevCounter + 1;
-        });
+        // Then increment counter to trigger data refresh
+        incrementLocationCounter();
         
         toast({
           title: "Location Updated",
@@ -53,6 +63,7 @@ export function useLocation() {
         });
       },
       (error) => {
+        console.error("Geolocation error:", error);
         setError(error.message);
         setLoading(false);
         toast({
@@ -60,9 +71,14 @@ export function useLocation() {
           description: "Unable to retrieve your location",
           variant: "destructive",
         });
+      },
+      { 
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0
       }
     );
-  }, []);
+  }, [incrementLocationCounter]);
 
   // Search for a location by name using Nominatim API (OpenStreetMap)
   const searchLocation = useCallback(async (query: string) => {
@@ -71,8 +87,15 @@ export function useLocation() {
     setLoading(true);
     setCustomLocation(query);
     
+    console.log("Searching for location:", query);
+    
     try {
       const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`);
+      
+      if (!response.ok) {
+        throw new Error(`Nominatim API error: ${response.status}`);
+      }
+      
       const data = await response.json();
       
       if (data && data.length > 0) {
@@ -83,21 +106,21 @@ export function useLocation() {
           longitude: parseFloat(location.lon)
         };
         
-        console.log("Found location for search:", query, newPosition);
+        console.log("Found location:", query, newPosition);
+        
+        // Update position state first
         setPosition(newPosition);
         setLoading(false);
         
-        // Update the counter after position is set
-        setLocationChangeCounter(prevCounter => {
-          console.log(`Incrementing location counter from ${prevCounter} to ${prevCounter + 1} for search`);
-          return prevCounter + 1;
-        });
+        // Then increment counter to trigger data refresh
+        incrementLocationCounter();
         
         toast({
           title: "Location Updated",
           description: `Showing results for ${query}`,
         });
       } else {
+        console.log("No location found for:", query);
         setLoading(false);
         toast({
           title: "Location Error",
@@ -114,12 +137,19 @@ export function useLocation() {
         variant: "destructive",
       });
     }
-  }, []);
+  }, [incrementLocationCounter]);
 
   // Initialize with the user's current location
   useEffect(() => {
     getCurrentLocation();
   }, [getCurrentLocation]);
+
+  // Debug logs for position changes
+  useEffect(() => {
+    if (position) {
+      console.log("Position state updated:", position);
+    }
+  }, [position]);
 
   return { 
     position, 

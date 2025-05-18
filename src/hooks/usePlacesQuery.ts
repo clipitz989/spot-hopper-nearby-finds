@@ -1,6 +1,6 @@
 
-import { useQuery } from "@tanstack/react-query";
-import { fetchPlaces, GoogleSearchParams, mapCategoriesToGoogle } from "../services/googlePlacesService";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { fetchPlaces, GoogleSearchParams, mapCategoriesToGoogle, clearPlacesCache } from "../services/googlePlacesService";
 import { PointOfInterest, Filter } from "../types";
 import { useLocation } from "./useLocation";
 import { useEffect } from "react";
@@ -13,13 +13,28 @@ interface UsePlacesQueryOptions {
 export function usePlacesQuery(options: UsePlacesQueryOptions = {}) {
   const { position, loading: locationLoading, locationChangeCounter } = useLocation();
   const { enabled = true, filters } = options;
+  const queryClient = useQueryClient();
 
+  // Create query key with all dependencies that should trigger a refetch
+  const queryKey = ['places', 
+    position?.latitude, 
+    position?.longitude, 
+    filters, 
+    locationChangeCounter
+  ];
+  
   const query = useQuery({
-    queryKey: ['places', position, filters, locationChangeCounter], // Include locationChangeCounter in query key
+    queryKey: queryKey,
     queryFn: async () => {
       if (!position) {
+        console.log("No position available, returning empty array");
         return [];
       }
+      
+      console.log(`Fetching places for position: ${position.latitude},${position.longitude}, counter: ${locationChangeCounter}`);
+      
+      // Clear the places cache when refetching at a new location
+      clearPlacesCache();
       
       const params: GoogleSearchParams = {
         location: `${position.latitude},${position.longitude}`,
@@ -46,6 +61,7 @@ export function usePlacesQuery(options: UsePlacesQueryOptions = {}) {
       
       try {
         const places = await fetchPlaces(params);
+        console.log(`Successfully fetched ${places.length} places`);
         
         // Filter by minimum rating on the client side since Google Places API
         // doesn't support minimum rating filter
@@ -56,13 +72,28 @@ export function usePlacesQuery(options: UsePlacesQueryOptions = {}) {
       }
     },
     enabled: enabled && !locationLoading && !!position,
-    staleTime: 0, // Reduced from Infinity to ensure we get fresh data
-    refetchOnMount: true, // Enable refetch on mount
+    staleTime: 0, // Always consider data stale to ensure fresh data
+    gcTime: 1000, // Reduce cache time to 1 second for quick invalidation
+    refetchOnMount: true,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
   });
 
-  // Log when query actually runs
+  // Force refetch when location changes
+  useEffect(() => {
+    if (locationChangeCounter > 0 && position && !locationLoading) {
+      console.log(`Location changed (counter: ${locationChangeCounter}), forcing immediate refetch...`);
+      
+      // Short timeout to ensure state updates have settled
+      setTimeout(() => {
+        console.log("Invalidating query cache and refetching");
+        queryClient.invalidateQueries({ queryKey: ['places'] });
+        query.refetch();
+      }, 100);
+    }
+  }, [locationChangeCounter, position, locationLoading, queryClient, query]);
+
+  // Additional debugging
   useEffect(() => {
     if (query.isFetching) {
       console.log("Query is fetching with position:", position, "counter:", locationChangeCounter);
@@ -70,7 +101,10 @@ export function usePlacesQuery(options: UsePlacesQueryOptions = {}) {
     if (query.data) {
       console.log(`Query returned ${query.data.length} places`);
     }
-  }, [query.isFetching, query.data, position, locationChangeCounter]);
+    if (query.isError) {
+      console.error("Query error:", query.error);
+    }
+  }, [query.isFetching, query.isError, query.data, query.error, position, locationChangeCounter]);
 
   return query;
 }
