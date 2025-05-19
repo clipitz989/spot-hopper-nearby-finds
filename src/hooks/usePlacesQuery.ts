@@ -1,4 +1,3 @@
-
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { fetchPlaces, GoogleSearchParams, mapCategoriesToGoogle, clearPlacesCache } from "../services/googlePlacesService";
 import { PointOfInterest, Filter } from "../types";
@@ -48,59 +47,79 @@ export function usePlacesQuery(options: UsePlacesQueryOptions = {}) {
       if (naturalQuery) {
         console.log("Using natural language query:", naturalQuery);
         
-        // Extract relevant keywords from the natural query
-        // This is a simple implementation - could be made more sophisticated
         const naturalQueryLower = naturalQuery.toLowerCase();
         
-        // Map intent words to categories
-        if (
-          naturalQueryLower.includes("eat") || 
-          naturalQueryLower.includes("food") || 
-          naturalQueryLower.includes("restaurant") ||
-          naturalQueryLower.includes("dinner") ||
-          naturalQueryLower.includes("lunch") ||
-          naturalQueryLower.includes("breakfast")
-        ) {
-          params.type = "restaurant";
-        } else if (
-          naturalQueryLower.includes("drink") ||
-          naturalQueryLower.includes("bar") ||
-          naturalQueryLower.includes("pub") ||
-          naturalQueryLower.includes("beer") ||
-          naturalQueryLower.includes("wine") ||
-          naturalQueryLower.includes("cocktail")
-        ) {
-          params.type = "bar";
-        } else if (
-          naturalQueryLower.includes("see") ||
-          naturalQueryLower.includes("visit") ||
-          naturalQueryLower.includes("tour") ||
-          naturalQueryLower.includes("museum") ||
-          naturalQueryLower.includes("attraction")
-        ) {
-          params.type = "tourist_attraction";
-        } else if (
-          naturalQueryLower.includes("shop") ||
-          naturalQueryLower.includes("buy") ||
-          naturalQueryLower.includes("purchase") ||
-          naturalQueryLower.includes("mall")
-        ) {
-          params.type = "shopping_mall";
+        // Movie and entertainment related terms
+        const movieTerms = ["movie", "cinema", "theater", "theatre", "film"];
+        const watchTerms = ["watch", "see", "viewing"];
+        
+        // Sports and game watching related terms
+        const sportsTerms = [
+          "game", "match", "sports", "watch", "stadium", "arena", 
+          "basketball", "football", "baseball", "soccer", "hockey"
+        ];
+        
+        // Dining related terms with subcategories
+        const diningCategories = {
+          general: ["eat", "food", "restaurant", "dinner", "lunch", "breakfast", "cuisine", "meal", "dining", "hungry", "bite"],
+          steak: ["steak", "steakhouse", "prime rib", "ribeye", "filet"],
+          seafood: ["seafood", "fish", "sushi", "oyster"],
+          italian: ["italian", "pasta", "pizza"],
+          chinese: ["chinese", "dim sum", "asian"],
+          mexican: ["mexican", "tacos", "burrito"],
+          japanese: ["japanese", "sushi", "ramen"],
+          thai: ["thai", "pad thai"],
+          indian: ["indian", "curry"],
+          mediterranean: ["mediterranean", "greek", "kebab"]
+        };
+
+        // Park related terms
+        const parkTerms = ["park", "playground", "garden", "trail", "nature"];
+        
+        // Check for movie/cinema intent
+        if (movieTerms.some(term => naturalQueryLower.includes(term)) ||
+            (watchTerms.some(term => naturalQueryLower.includes(term)) && 
+             naturalQueryLower.includes("movie"))) {
+          params.type = "movie_theater";
+          params.keyword = "movie theater cinema";
+          params._intent = "movie";
         }
-        
-        // Extract keywords by removing intent words
-        const intentWords = ["i", "would", "like", "to", "want", "find", "eat", "drink", 
-                            "visit", "see", "go", "shop", "buy", "near", "me", "nearby", 
-                            "some", "a", "an", "the"];
-        
-        const keywords = naturalQueryLower
-          .split(" ")
-          .filter(word => !intentWords.includes(word) && word.length > 2)
-          .join(" ");
-        
-        if (keywords) {
-          params.keyword = keywords;
-          console.log("Extracted keywords:", keywords);
+        // Check for park intent
+        else if (parkTerms.some(term => naturalQueryLower.includes(term))) {
+          params.type = "park";
+          params.keyword = naturalQueryLower; // Include the original search term
+          params._intent = "park";
+        }
+        // Check for sports/game watching intent
+        else if (sportsTerms.some(term => naturalQueryLower.includes(term))) {
+          params.type = "bar";
+          params.keyword = "sports bar";
+          params._intent = "sports";
+        }
+        // Check for specific dining intents
+        else {
+          for (const [cuisine, terms] of Object.entries(diningCategories)) {
+            if (cuisine !== 'general' && terms.some(term => naturalQueryLower.includes(term))) {
+              params.type = "restaurant";
+              params.keyword = naturalQueryLower; // Include the original search term
+              params._intent = `cuisine_${cuisine}`;
+              break;
+            }
+          }
+          
+          // If no specific cuisine found, check for general dining intent
+          if (!params._intent && diningCategories.general.some(term => naturalQueryLower.includes(term))) {
+            params.type = "restaurant";
+            params.keyword = naturalQueryLower; // Include the original search term
+            params._intent = "dining_general";
+          }
+        }
+
+        // If no specific intent was found, use the natural query as a keyword
+        if (!params._intent) {
+          params.type = "establishment";
+          params.keyword = naturalQueryLower;
+          params._intent = "general_search";
         }
       } else if (filters?.selectedCategories && filters.selectedCategories.length > 0) {
         // Only use category filters if not using natural search
@@ -123,9 +142,136 @@ export function usePlacesQuery(options: UsePlacesQueryOptions = {}) {
         const places = await fetchPlaces(params);
         console.log(`Successfully fetched ${places.length} places`);
         
-        // Filter by minimum rating on the client side since Google Places API
-        // doesn't support minimum rating filter
-        return places.filter(place => place.rating >= (filters?.minRating || 0));
+        // Apply strict post-query filtering based on intent
+        let filteredPlaces = places;
+        
+        if (params._intent) {
+          console.log(`Applying strict filtering for intent: ${params._intent}`);
+          
+          switch (params._intent) {
+            case 'movie':
+              // Strictly filter for movie theaters
+              filteredPlaces = places.filter(place => {
+                const nameLower = place.name.toLowerCase();
+                const isMovieTheater = 
+                  nameLower.includes('movie') || 
+                  nameLower.includes('cinema') ||
+                  nameLower.includes('theater') ||
+                  nameLower.includes('theatre') ||
+                  place.tags.includes('movie_theater');
+                
+                return isMovieTheater;
+              });
+              break;
+
+            case 'park':
+              // Strictly filter for parks
+              filteredPlaces = places.filter(place => {
+                const nameLower = place.name.toLowerCase();
+                const isPark = 
+                  nameLower.includes('park') || 
+                  nameLower.includes('garden') ||
+                  place.tags.some(tag => 
+                    tag.includes('park') || 
+                    tag.includes('garden') ||
+                    tag === 'natural_feature'
+                  );
+                
+                return isPark;
+              });
+              break;
+
+            case 'sports':
+              // Strictly filter for sports bars
+              filteredPlaces = places.filter(place => {
+                const nameLower = place.name.toLowerCase();
+                const hasSportsInName = nameLower.includes('sports') || 
+                                     nameLower.includes('stadium') || 
+                                     nameLower.includes('arena');
+                
+                const hasSportsTag = place.tags.some(tag => 
+                  tag === 'sports bar' || 
+                  tag === 'stadium' || 
+                  tag === 'arena'
+                );
+                
+                return hasSportsInName || hasSportsTag || 
+                       (place.category === 'bars' && 
+                        place.rating >= 4.0 && 
+                        place.tags.some(tag => tag.includes('bar')));
+              });
+              break;
+            
+            case 'cuisine_steak':
+              // Strictly filter for steakhouses
+              filteredPlaces = places.filter(place => {
+                const nameLower = place.name.toLowerCase();
+                const isExplicitSteakhouse = 
+                  nameLower.includes('steak') || 
+                  nameLower.includes('steakhouse') ||
+                  place.tags.includes('steakhouse');
+                
+                return isExplicitSteakhouse || 
+                       (place.category === 'food' && 
+                        place.rating >= 4.2 &&
+                        place.tags.some(tag => 
+                          tag === 'steakhouse' || 
+                          tag === 'steak restaurant' || 
+                          tag === 'american restaurant'
+                        ));
+              });
+              break;
+            
+            case 'general_search':
+              // For general searches, ensure the search term appears in name or tags
+              if (naturalQuery) {
+                const searchTerms = naturalQuery.toLowerCase().split(' ');
+                filteredPlaces = places.filter(place => {
+                  const nameLower = place.name.toLowerCase();
+                  return searchTerms.some(term => 
+                    nameLower.includes(term) || 
+                    place.tags.some(tag => tag.includes(term))
+                  );
+                });
+              }
+              break;
+
+            default:
+              if (params._intent.startsWith('cuisine_')) {
+                const cuisine = params._intent.replace('cuisine_', '');
+                filteredPlaces = places.filter(place => {
+                  const nameLower = place.name.toLowerCase();
+                  const isExplicitCuisine = 
+                    nameLower.includes(cuisine) || 
+                    place.tags.some(tag => tag === `${cuisine} restaurant`);
+                  
+                  return isExplicitCuisine || 
+                         (place.category === 'food' && 
+                          place.rating >= 4.0 &&
+                          place.tags.some(tag => tag.includes(cuisine)));
+                });
+              }
+              break;
+          }
+          
+          console.log(`Filtered to ${filteredPlaces.length} places after strict intent filtering`);
+          
+          // Only fall back if we have absolutely no results
+          if (filteredPlaces.length === 0) {
+            console.log('No places matched strict filters, using top-rated relevant places');
+            // Fall back to highly-rated places of the correct category
+            filteredPlaces = places.filter(place => 
+              place.rating >= 4.2 && 
+              (params.type === 'bar' ? place.category === 'bars' : place.category === 'food')
+            );
+          }
+        }
+        
+        // Apply rating filter last
+        const finalResults = filteredPlaces.filter(place => place.rating >= (filters?.minRating || 0));
+        console.log(`Final results count: ${finalResults.length}`);
+        
+        return finalResults;
       } catch (error) {
         console.error("Error fetching places:", error);
         throw error;
