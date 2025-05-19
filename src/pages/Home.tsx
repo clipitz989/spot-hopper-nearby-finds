@@ -16,7 +16,7 @@ export default function Home() {
   const { position, loading: locationLoading, locationChangeCounter } = useLocation();
   const [selectedPlace, setSelectedPlace] = useState<PointOfInterest | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
-  const [sortBy, setSortBy] = useState<SortOption>('relevance');
+  const [sortBy, setSortBy] = useState<SortOption>('distance');
   const [filters, setFilters] = useState<Filter>({
     openNow: false,
     minRating: 0,
