@@ -1,3 +1,4 @@
+
 import { Heart, MapPin, Phone, Globe, Star } from "lucide-react";
 import { PointOfInterest } from "../types";
 import { useFavorites } from "../contexts/FavoritesContext";
@@ -25,19 +26,29 @@ export function PlaceDetails({ place, isOpen, onClose }: PlaceDetailsProps) {
   
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden">
-        <div className="relative h-60">
+      <DialogContent className="sm:max-w-[500px] p-0 overflow-hidden rounded-xl">
+        <div className="relative h-72">
           <img 
             src={place.image} 
             alt={place.name} 
             className="w-full h-full object-cover" 
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
+          <div className="absolute bottom-4 left-4 right-4">
+            <h2 className="text-2xl font-bold text-white mb-1">{place.name}</h2>
+            <div className="flex items-center text-white/80 gap-2">
+              <CategoryIcon category={place.category} size={16} className="opacity-90" />
+              <span className="capitalize text-sm">{place.subcategory || place.category}</span>
+              {place.priceRange && (
+                <span className="ml-2 font-medium">{"$".repeat(place.priceRange)}</span>
+              )}
+            </div>
+          </div>
           <div className="absolute top-4 right-4">
             <Button
               variant="outline"
               size="icon"
-              className={`rounded-full bg-white ${favorite ? 'text-red-500' : 'text-gray-400'}`}
+              className={`rounded-full backdrop-blur-md bg-white/20 border-white/30 ${favorite ? 'text-red-500' : 'text-white'}`}
               onClick={handleFavoriteClick}
             >
               <Heart className={favorite ? 'fill-current' : ''} size={18} />
@@ -46,21 +57,20 @@ export function PlaceDetails({ place, isOpen, onClose }: PlaceDetailsProps) {
         </div>
         
         <div className="p-6">
-          <div className="flex justify-between items-start mb-4">
-            <div>
-              <h2 className="text-2xl font-semibold mb-1">{place.name}</h2>
-              <div className="flex items-center text-muted-foreground">
-                <CategoryIcon category={place.category} size={16} />
-                <span className="capitalize ml-4">{place.subcategory || place.category}</span>
-                {place.priceRange && (
-                  <span className="ml-4">{"$".repeat(place.priceRange)}</span>
-                )}
-              </div>
+          <div className="flex items-start justify-between mb-6">
+            <div className="flex items-center gap-1.5 bg-primary/10 text-primary font-medium rounded-full px-3 py-1.5">
+              <Star className="fill-primary text-primary" size={16} />
+              <span>{place.rating} <span className="text-primary/60 text-sm">({place.reviews})</span></span>
             </div>
-            <div className="flex items-center bg-primary/10 text-primary font-medium rounded px-3 py-1">
-              <Star className="mr-1" size={16} />
-              {place.rating} ({place.reviews})
-            </div>
+            
+            <Button 
+              variant={favorite ? "outline" : "secondary"} 
+              className={`rounded-full px-4 ${favorite ? 'text-red-500 border-red-200' : ''}`}
+              onClick={handleFavoriteClick}
+            >
+              <Heart className={`mr-2 ${favorite ? 'fill-current' : ''}`} size={16} />
+              {favorite ? 'Saved' : 'Save'}
+            </Button>
           </div>
           
           <div className="space-y-4">
@@ -70,7 +80,7 @@ export function PlaceDetails({ place, isOpen, onClose }: PlaceDetailsProps) {
                 <p className="font-medium">Address</p>
                 <p className="text-muted-foreground">{place.location.address}</p>
                 {place.distance !== undefined && (
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-sm text-muted-foreground/80 mt-1">
                     {place.distance} miles away
                   </p>
                 )}
@@ -107,8 +117,8 @@ export function PlaceDetails({ place, isOpen, onClose }: PlaceDetailsProps) {
             )}
           </div>
           
-          <div className="mt-8 flex gap-4">
-            <Button className="flex-1" asChild>
+          <div className="mt-8">
+            <Button className="w-full rounded-full" size="lg" asChild>
               <a 
                 href={`https://www.google.com/maps/dir/?api=1&destination=${place.location.latitude},${place.location.longitude}`}
                 target="_blank"
@@ -116,15 +126,6 @@ export function PlaceDetails({ place, isOpen, onClose }: PlaceDetailsProps) {
               >
                 Get Directions
               </a>
-            </Button>
-            
-            <Button 
-              variant={favorite ? "outline" : "secondary"} 
-              className={favorite ? "text-red-500" : ""}
-              onClick={handleFavoriteClick}
-            >
-              <Heart className={`mr-2 ${favorite ? 'fill-current' : ''}`} size={16} />
-              {favorite ? 'Saved' : 'Save'}
             </Button>
           </div>
         </div>
