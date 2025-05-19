@@ -8,11 +8,12 @@ import { useEffect } from "react";
 interface UsePlacesQueryOptions {
   enabled?: boolean;
   filters?: Filter;
+  naturalQuery?: string;
 }
 
 export function usePlacesQuery(options: UsePlacesQueryOptions = {}) {
   const { position, loading: locationLoading, locationChangeCounter } = useLocation();
-  const { enabled = true, filters } = options;
+  const { enabled = true, filters, naturalQuery } = options;
   const queryClient = useQueryClient();
 
   // Create query key with all dependencies that should trigger a refetch
@@ -20,6 +21,7 @@ export function usePlacesQuery(options: UsePlacesQueryOptions = {}) {
     position?.latitude, 
     position?.longitude, 
     filters, 
+    naturalQuery,
     locationChangeCounter
   ];
   
@@ -42,8 +44,66 @@ export function usePlacesQuery(options: UsePlacesQueryOptions = {}) {
         opennow: filters?.openNow,
       };
       
-      // Add category filter if specified
-      if (filters?.selectedCategories && filters.selectedCategories.length > 0) {
+      // Process natural language query if provided
+      if (naturalQuery) {
+        console.log("Using natural language query:", naturalQuery);
+        
+        // Extract relevant keywords from the natural query
+        // This is a simple implementation - could be made more sophisticated
+        const naturalQueryLower = naturalQuery.toLowerCase();
+        
+        // Map intent words to categories
+        if (
+          naturalQueryLower.includes("eat") || 
+          naturalQueryLower.includes("food") || 
+          naturalQueryLower.includes("restaurant") ||
+          naturalQueryLower.includes("dinner") ||
+          naturalQueryLower.includes("lunch") ||
+          naturalQueryLower.includes("breakfast")
+        ) {
+          params.type = "restaurant";
+        } else if (
+          naturalQueryLower.includes("drink") ||
+          naturalQueryLower.includes("bar") ||
+          naturalQueryLower.includes("pub") ||
+          naturalQueryLower.includes("beer") ||
+          naturalQueryLower.includes("wine") ||
+          naturalQueryLower.includes("cocktail")
+        ) {
+          params.type = "bar";
+        } else if (
+          naturalQueryLower.includes("see") ||
+          naturalQueryLower.includes("visit") ||
+          naturalQueryLower.includes("tour") ||
+          naturalQueryLower.includes("museum") ||
+          naturalQueryLower.includes("attraction")
+        ) {
+          params.type = "tourist_attraction";
+        } else if (
+          naturalQueryLower.includes("shop") ||
+          naturalQueryLower.includes("buy") ||
+          naturalQueryLower.includes("purchase") ||
+          naturalQueryLower.includes("mall")
+        ) {
+          params.type = "shopping_mall";
+        }
+        
+        // Extract keywords by removing intent words
+        const intentWords = ["i", "would", "like", "to", "want", "find", "eat", "drink", 
+                            "visit", "see", "go", "shop", "buy", "near", "me", "nearby", 
+                            "some", "a", "an", "the"];
+        
+        const keywords = naturalQueryLower
+          .split(" ")
+          .filter(word => !intentWords.includes(word) && word.length > 2)
+          .join(" ");
+        
+        if (keywords) {
+          params.keyword = keywords;
+          console.log("Extracted keywords:", keywords);
+        }
+      } else if (filters?.selectedCategories && filters.selectedCategories.length > 0) {
+        // Only use category filters if not using natural search
         const types = mapCategoriesToGoogle(filters.selectedCategories);
         if (types.length > 0) {
           // Google Places API only allows one type at a time, so we'll use the first one

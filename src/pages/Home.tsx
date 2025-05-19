@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useLocation } from "../hooks/useLocation";
 import { PointOfInterest, Filter } from "../types";
@@ -8,6 +9,7 @@ import { usePlacesQuery } from "../hooks/usePlacesQuery";
 import { toast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LocationSearch } from "../components/LocationSearch";
+import { NaturalSearch } from "../components/NaturalSearch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 type SortOption = 'relevance' | 'rating' | 'distance';
@@ -17,6 +19,8 @@ export default function Home() {
   const [selectedPlace, setSelectedPlace] = useState<PointOfInterest | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [sortBy, setSortBy] = useState<SortOption>('distance');
+  const [naturalQuery, setNaturalQuery] = useState("");
+  const [isNaturalSearchActive, setIsNaturalSearchActive] = useState(false);
   const [filters, setFilters] = useState<Filter>({
     openNow: false,
     minRating: 0,
@@ -32,7 +36,8 @@ export default function Home() {
     error,
     refetch
   } = usePlacesQuery({
-    filters
+    filters,
+    naturalQuery: isNaturalSearchActive ? naturalQuery : undefined
   });
 
   // Force refetch when location changes
@@ -64,6 +69,12 @@ export default function Home() {
   }, [isError, error]);
 
   const handleFilterChange = (newFilters: Filter) => {
+    // Clear natural search when applying filters
+    if (isNaturalSearchActive) {
+      setIsNaturalSearchActive(false);
+      setNaturalQuery("");
+    }
+    
     setFilters(newFilters);
     // Provide feedback when applying filters
     if (newFilters.selectedCategories.length > 0) {
@@ -72,6 +83,30 @@ export default function Home() {
         description: `Finding places${newFilters.selectedCategories.length > 0 ? ' in selected categories' : ''}`,
       });
     }
+  };
+
+  const handleNaturalSearch = (query: string) => {
+    setNaturalQuery(query);
+    setIsNaturalSearchActive(true);
+    
+    // When using natural search, reset category filters to ensure broader results
+    setFilters(prev => ({
+      ...prev,
+      selectedCategories: []
+    }));
+    
+    toast({
+      title: "Searching",
+      description: `Looking for places matching "${query}"`,
+    });
+    
+    refetch();
+  };
+
+  const handleClearNaturalSearch = () => {
+    setIsNaturalSearchActive(false);
+    setNaturalQuery("");
+    refetch();
   };
 
   const handleOpenDetails = (place: PointOfInterest) => {
@@ -184,6 +219,15 @@ export default function Home() {
       
       <div className="px-4 pt-4 pb-2">
         <LocationSearch />
+      </div>
+      
+      <div className="px-4 pt-2 pb-2">
+        <NaturalSearch 
+          onSearch={handleNaturalSearch}
+          isSearching={placesLoading}
+          activeQuery={isNaturalSearchActive ? naturalQuery : ""}
+          onClear={handleClearNaturalSearch}
+        />
       </div>
       
       <FilterBar filters={filters} onFilterChange={handleFilterChange} />
