@@ -310,7 +310,7 @@ const transformGoogleToPointOfInterest = (place: google.maps.places.PlaceResult,
     name: place.name || '',
     category: 'food', // We'll determine this based on types
     subcategory: place.types?.[0]?.replace(/_/g, ' '),
-    description: place.vicinity || '',
+    description: '',
     rating: place.rating || 4.0,
     reviews: place.user_ratings_total || 0,
     image: getPlaceImage(place.photos),
@@ -323,7 +323,10 @@ const transformGoogleToPointOfInterest = (place: google.maps.places.PlaceResult,
     openNow: place.opening_hours?.isOpen(),
     distance: distanceInMiles,
     tags: place.types?.map(t => t.replace(/_/g, ' ')) || [],
-    contact: {}
+    contact: {
+      phone: place.formatted_phone_number,
+      website: place.website || place.url
+    }
   };
   
   // Store in cache for future use
@@ -367,6 +370,26 @@ const isLikelyBar = (place: google.maps.places.PlaceResult): boolean => {
     );
 
   return servesAlcohol || isPopularEvening;
+};
+
+// Add this new function before fetchPlaces
+const getPlaceDetails = (service: google.maps.places.PlacesService, placeId: string): Promise<google.maps.places.PlaceResult> => {
+  return new Promise((resolve, reject) => {
+    service.getDetails(
+      {
+        placeId: placeId,
+        fields: ['website', 'formatted_phone_number', 'url', 'opening_hours']
+      },
+      (place, status) => {
+        if (status === google.maps.places.PlacesServiceStatus.OK && place) {
+          resolve(place);
+        } else {
+          console.log(`Failed to get details for place ${placeId}, status: ${status}`);
+          resolve({}); // Resolve with empty object to continue processing
+        }
+      }
+    );
+  });
 };
 
 export const fetchPlaces = async (params: GoogleSearchParams): Promise<PointOfInterest[]> => {
@@ -514,12 +537,12 @@ export const fetchPlaces = async (params: GoogleSearchParams): Promise<PointOfIn
         
         console.log("Starting searches with configs:", searchConfigs);
         
-        // Perform all searches in parallel
+        // Modify the Promise.all section to include details fetch
         Promise.all(searchConfigs.map(search => 
           new Promise<google.maps.places.PlaceResult[]>((resolveSearch) => {
             const searchRequest: google.maps.places.PlaceSearchRequest = {
               location: new google.maps.LatLng(lat, lng),
-              radius: params.radius || 15000, // Increased to 15km radius for maximum coverage
+              radius: params.radius || 15000,
               type: search.type,
               keyword: search.keyword,
               openNow: params.opennow,
@@ -527,14 +550,20 @@ export const fetchPlaces = async (params: GoogleSearchParams): Promise<PointOfIn
               maxPriceLevel: params.maxprice
             };
 
-            console.log(`Executing search with params:`, searchRequest);
-
-            service.nearbySearch(searchRequest, (results, status) => {
+            service.nearbySearch(searchRequest, async (results, status) => {
               if (status === google.maps.places.PlacesServiceStatus.OK && results) {
-                console.log(`Search successful for type: ${search.type}, found ${results.length} results`);
-                resolveSearch(results);
+                // Fetch details for each place
+                const detailedResults = await Promise.all(
+                  results.map(async (place) => {
+                    if (place.place_id) {
+                      const details = await getPlaceDetails(service, place.place_id);
+                      return { ...place, ...details };
+                    }
+                    return place;
+                  })
+                );
+                resolveSearch(detailedResults);
               } else {
-                console.log(`Search failed for type: ${search.type}, keyword: ${search.keyword}, status: ${status}`);
                 resolveSearch([]);
               }
             });

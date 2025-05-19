@@ -49,11 +49,11 @@ export function PlaceDetails({ place, isOpen, onClose }: PlaceDetailsProps) {
           <div className="flex justify-between items-start mb-4">
             <div>
               <h2 className="text-2xl font-semibold mb-1">{place.name}</h2>
-              <div className="flex items-center gap-2 text-muted-foreground">
+              <div className="flex items-center text-muted-foreground">
                 <CategoryIcon category={place.category} size={16} />
-                <span className="capitalize">{place.subcategory || place.category}</span>
+                <span className="capitalize ml-4">{place.subcategory || place.category}</span>
                 {place.priceRange && (
-                  <span>{"$".repeat(place.priceRange)}</span>
+                  <span className="ml-4">{"$".repeat(place.priceRange)}</span>
                 )}
               </div>
             </div>
@@ -62,8 +62,6 @@ export function PlaceDetails({ place, isOpen, onClose }: PlaceDetailsProps) {
               {place.rating} ({place.reviews})
             </div>
           </div>
-          
-          <p className="text-muted-foreground mb-6">{place.description}</p>
           
           <div className="space-y-4">
             <div className="flex items-start gap-3">
@@ -100,9 +98,9 @@ export function PlaceDetails({ place, isOpen, onClose }: PlaceDetailsProps) {
                     href={place.contact.website} 
                     target="_blank" 
                     rel="noopener noreferrer"
-                    className="text-primary hover:underline"
+                    className="text-primary hover:underline break-all"
                   >
-                    Visit website
+                    {place.contact.website.replace(/^https?:\/\//, '')}
                   </a>
                 </div>
               </div>
