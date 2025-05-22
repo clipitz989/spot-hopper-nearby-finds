@@ -246,7 +246,6 @@ export interface GoogleSearchParams {
   opennow?: boolean;
   minprice?: number;
   maxprice?: number;
-  _intent?: string; // Internal use for post-query filtering
 }
 
 // Convert our app categories to Google place types

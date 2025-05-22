@@ -16,7 +16,6 @@ export interface PointOfInterest {
   openNow?: boolean;
   distance?: number; // in meters
   tags: string[];
-  types?: string[]; // Google Places types
   contact?: {
     phone?: string;
     website?: string;
